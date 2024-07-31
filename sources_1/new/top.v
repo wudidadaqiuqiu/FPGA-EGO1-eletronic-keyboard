@@ -63,7 +63,7 @@ vga_driver vga(
 
 
 
-parameter OBJ_WIDTH = 56, MAX_LEN = 16;
+parameter OBJ_WIDTH = 66, MAX_LEN = 16;
 wire [(OBJ_WIDTH * MAX_LEN)-1:0] obj_arr_packed;
 
 wire butf;
@@ -158,27 +158,29 @@ endmodule
 `define DARK_BLUE   12'H008
 
 
-module basic_graph #(parameter OBJ_WIDTH = 56, parameter MAX_LEN = 16)(
+module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 16, parameter LEN_BITS = 6)(
     input wire vga_clk,
     input wire rst,
     input wire [9:0] pix_x,
     input wire [9:0] pix_y,
     input wire [(OBJ_WIDTH * MAX_LEN)-1:0] obj_arr_packed,
-    input wire [5:0] obj_arr_len,
+    input wire [LEN_BITS-1:0] obj_arr_len,
     output reg [11:0] pix_data //输出像素点色彩信息
 );
     parameter 
-            ENUML = 55,
-            ENUMR = 55 - 4 + 1,
-            XL= 55-4,
-            XR = 55-4-10+1,
+            ENUML = 65,
+            ENUMR = 65 - 4 + 1,
+            XL= ENUMR-1,
+            XR = ENUMR-10,
             YL = XR - 1,
             YR = XR - 10,
             WIDTHL = YR - 1,
             WIDTHR = YR - 10,
             HEIGHTL = WIDTHR - 1,
             HEIGHTR = WIDTHR - 10,
-            COLORL = HEIGHTR - 1,
+            RADIUSL = HEIGHTR - 1,
+            RADIUSR = HEIGHTR - 10,
+            COLORL = RADIUSR - 1,
             COLORR = 0,
             POSXL = 19,
             POSXR = 10,
@@ -194,18 +196,18 @@ module basic_graph #(parameter OBJ_WIDTH = 56, parameter MAX_LEN = 16)(
                         pos[POSYL:POSYR] >= 0 && pos[POSYL:POSYR] <= SCREEN_HEIGHT);
     end
     endfunction
-    function is_in_rectangle;
+    function is_obj_in_rectangle;
     input [19:0] pos;
-    input [55:0] obj;
+    input [OBJ_WIDTH-1:0] obj;
     begin
-        is_in_rectangle = (pos[19:10] >= obj[XL: XR] && pos[19:10] < obj[XL:XR] + obj[WIDTHL:WIDTHR]
+        is_obj_in_rectangle = (pos[19:10] >= obj[XL: XR] && pos[19:10] < obj[XL:XR] + obj[WIDTHL:WIDTHR]
                         && pos[9:0] >= obj[YL: YR] && pos[9:0] < obj[YL:YR] + obj[HEIGHTL:HEIGHTR]);
     end
     endfunction
 
-    function is_in_circle;
+    function is_obj_in_circle;
     input [19:0] pos;
-    input [55:0] obj;
+    input [OBJ_WIDTH-1:0] obj;
 
     reg signed [31:0] dis_sq;
     reg signed [31:0] r_2;
@@ -214,11 +216,45 @@ module basic_graph #(parameter OBJ_WIDTH = 56, parameter MAX_LEN = 16)(
         tempx = (pos[POSXL:POSXR] - obj[XL:XR]);
         tempy = (pos[POSYL:POSYR] - obj[YL:YR]);
         dis_sq = tempx * tempx + tempy * tempy;
-        r_2 = obj[WIDTHL:WIDTHR] * obj[WIDTHL:WIDTHR];
-        is_in_circle = (dis_sq <= r_2);
+        r_2 = obj[RADIUSL:RADIUSR] * obj[RADIUSL:RADIUSR];
+        is_obj_in_circle = (dis_sq < r_2);
     end
     endfunction
 
+    function [9:0] int_to_10;
+    input integer i;
+        begin
+            int_to_10 = i[9:0];
+        end
+    endfunction
+    function is_obj_in_rounded_rectangle;
+    input [19:0] pos;
+    input [OBJ_WIDTH-1:0] obj;
+
+    reg signed [31:0] X,Y,W,H,R;
+
+    begin
+        X = obj[XL: XR];
+        Y = obj[YL: YR];
+        W = obj[WIDTHL:WIDTHR];
+        H = obj[HEIGHTL:HEIGHTR];
+        R = obj[RADIUSL:RADIUSR];
+        if (2 * R >= W || 2 * R >= H)
+            is_obj_in_rounded_rectangle = 0;
+        else begin
+            is_obj_in_rounded_rectangle = (
+                is_obj_in_rectangle(pos, {4'd0, int_to_10(X+R), int_to_10(Y), 
+                                    int_to_10(W - 2*R), int_to_10(H), 10'd0, 12'd0}) ||
+                is_obj_in_rectangle(pos, {4'd0, int_to_10(X), int_to_10(Y+R), 
+                                    int_to_10(W), int_to_10(H - 2*R), 10'd0, 12'd0}) ||
+                is_obj_in_circle(pos,    {4'd0, int_to_10(X+R), int_to_10(Y+R), 10'd0, 10'd0, int_to_10(R), 12'd0}) ||
+                is_obj_in_circle(pos,    {4'd0, int_to_10(X+W-R), int_to_10(Y+R), 10'd0, 10'd0, int_to_10(R), 12'd0}) ||
+                is_obj_in_circle(pos,    {4'd0, int_to_10(X+R), int_to_10(Y+H-R), 10'd0, 10'd0, int_to_10(R), 12'd0}) ||
+                is_obj_in_circle(pos,    {4'd0, int_to_10(X+W-R), int_to_10(Y+H-R), 10'd0, 10'd0, int_to_10(R), 12'd0})
+            ) ? 1 : 0;
+        end
+    end
+    endfunction
     // 定义一个多维数组来存储对象
     wire [OBJ_WIDTH-1:0] obj_arr [0:MAX_LEN-1];
     
@@ -236,7 +272,7 @@ module basic_graph #(parameter OBJ_WIDTH = 56, parameter MAX_LEN = 16)(
             
         end else if (!is_in_screen({pix_x, pix_y}))
             pix_data <= `BLACK;
-        else if (is_in_circle({pix_x, pix_y}, obj_arr[2])) 
+        else if (is_obj_in_rounded_rectangle({pix_x, pix_y}, obj_arr[2])) 
             pix_data <= obj_arr[2][COLORL:COLORR];
         else begin
             pix_data <= `BLACK;
@@ -246,21 +282,21 @@ module basic_graph #(parameter OBJ_WIDTH = 56, parameter MAX_LEN = 16)(
 endmodule
 
 
-module painter #(parameter OBJ_WIDTH = 56, parameter MAX_LEN = 16)(
+module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 16, parameter LEN_BITS = 6)(
     input wire clk,
     input wire rst,
     input wire sw,
     output wire [(OBJ_WIDTH * MAX_LEN)-1:0] obj_arr_packed,
-    output wire [5:0] arr_len,
+    output wire [LEN_BITS-1:0] arr_len,
     output wire [15:0] test_pin
 );
     // 内部存储对象的数组
     reg [OBJ_WIDTH-1:0] obj_arr [0:MAX_LEN-1];
-    reg [55:0] obj_reg = { 4'd0, 10'd100, 10'd100, 10'd100, 10'd100, `GREEN};
+    reg [OBJ_WIDTH-1:0] obj_reg = { 4'd0, 10'd100, 10'd100, 10'd100, 10'd100,10'd100, `GREEN};
     
-    reg [5:0] len = 0;
+    reg [LEN_BITS-1:0] len = 0;
 
-    assign test_pin[6:0] = len;
+    assign test_pin = obj_arr[2][11:0];
 
     // 打包多维数组为一维数组
     // generate 在综合时运行
@@ -273,9 +309,11 @@ module painter #(parameter OBJ_WIDTH = 56, parameter MAX_LEN = 16)(
 
     always @(negedge sw) begin
         if (!rst) begin
-            add_obj({ 4'd0, 10'd100, 10'd100, 10'd100, 10'd100, `GREEN});
+            obj_arr[2] = { 4'd0, 10'd100, 10'd100, 10'd100, 10'd100, 10'd100, `GREEN};
+            // add_obj({ 4'd0, 10'd100, 10'd100, 10'd100, 10'd100,10'd100, `GREEN});
         end else
-            add_obj({ 4'd0, 10'd200, 10'd200, 10'd100, 10'd100, `WHITE});
+            obj_arr[2] = { 4'd0, 10'd100, 10'd100, 10'd200, 10'd100, 10'd10, `WHITE};
+            // add_obj({ 4'd0, 10'd200, 10'd200, 10'd100, 10'd100,10'd100, `WHITE});
     end
     
     integer j;
