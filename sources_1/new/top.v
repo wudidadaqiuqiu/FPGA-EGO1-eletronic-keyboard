@@ -163,7 +163,7 @@ module basic_graph #(parameter OBJ_WIDTH = 56, parameter MAX_LEN = 16)(
     input wire rst,
     input wire [9:0] pix_x,
     input wire [9:0] pix_y,
-    output wire [(OBJ_WIDTH * MAX_LEN)-1:0] obj_arr_packed,
+    input wire [(OBJ_WIDTH * MAX_LEN)-1:0] obj_arr_packed,
     input wire [5:0] obj_arr_len,
     output reg [11:0] pix_data //输出像素点色彩信息
 );
@@ -207,11 +207,15 @@ module basic_graph #(parameter OBJ_WIDTH = 56, parameter MAX_LEN = 16)(
     input [19:0] pos;
     input [55:0] obj;
 
-    integer dis_sq;
+    reg signed [31:0] dis_sq;
+    reg signed [31:0] r_2;
+    reg signed [31:0] tempx, tempy;
     begin
-        dis_sq = (pos[POSXL:POSXR] - obj[XL:XR]) * (pos[POSXL:POSXR] - obj[XL:XR]) + 
-                (pos[POSYL:POSYR] - obj[YL:YR]) * (pos[POSYL:POSYR] - obj[YL:YR]);
-        is_in_circle = (dis_sq <= obj[WIDTHL:WIDTHR] * obj[WIDTHL:WIDTHR]);
+        tempx = (pos[POSXL:POSXR] - obj[XL:XR]);
+        tempy = (pos[POSYL:POSYR] - obj[YL:YR]);
+        dis_sq = tempx * tempx + tempy * tempy;
+        r_2 = obj[WIDTHL:WIDTHR] * obj[WIDTHL:WIDTHR];
+        is_in_circle = (dis_sq <= r_2);
     end
     endfunction
 
@@ -267,25 +271,19 @@ module painter #(parameter OBJ_WIDTH = 56, parameter MAX_LEN = 16)(
         end
     endgenerate
 
-    // reg [3:0] count = 4'd1;
     always @(negedge sw) begin
-        // count <= count + 1;
-        // if (count == 0)
-        // len <= (!rst) ? 0 : len + 1;
-        // if (len < MAX_LEN) begin
-        //     obj_arr[len] <= obj_reg;
-        //     len <= len + 1;
-        // end else 
-        //     len <= 0;
-        // add_obj(obj_reg);
+        if (!rst) begin
+            add_obj({ 4'd0, 10'd100, 10'd100, 10'd100, 10'd100, `GREEN});
+        end else
+            add_obj({ 4'd0, 10'd200, 10'd200, 10'd100, 10'd100, `WHITE});
     end
     
     integer j;
     always@(posedge clk or negedge rst) begin
         if(rst == 1'b0) begin
-            for (j = 0; j < MAX_LEN; j = j + 1) begin
-                obj_arr[j] =  { 4'd0, 10'd200, 10'd200, 10'd100, 10'd100, `WHITE};
-            end
+            // for (j = 0; j < MAX_LEN; j = j + 1) begin
+            //     obj_arr[j] =  { 4'd0, 10'd200, 10'd200, 10'd100, 10'd100, `WHITE};
+            // end
         end else begin
             // 
             // add_obj(obj_reg);
