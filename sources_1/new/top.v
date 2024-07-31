@@ -157,6 +157,10 @@ endmodule
 `define DARK_GREEN  12'H080
 `define DARK_BLUE   12'H008
 
+`define NONE_ENUM 4'd0
+`define RECTANGLE_ENUM 4'd1
+`define CIRCLE_ENUM 4'd2
+`define ROUNDRECT_ENUM 4'd3
 
 module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 16, parameter LEN_BITS = 6)(
     input wire vga_clk,
@@ -266,16 +270,50 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 16, parameter
         end
     endgenerate
     
+    integer j;
     always@(posedge vga_clk or negedge rst) begin
         if(rst == 1'b0) begin
             pix_data <= `BLACK;
             
-        end else if (!is_in_screen({pix_x, pix_y}))
+        end else if (!is_in_screen({pix_x, pix_y})) begin
             pix_data <= `BLACK;
-        else if (is_obj_in_rounded_rectangle({pix_x, pix_y}, obj_arr[2])) 
-            pix_data <= obj_arr[2][COLORL:COLORR];
-        else begin
-            pix_data <= `BLACK;
+        end else begin  : loop
+            for (j = 0; j < MAX_LEN; j = j + 1) begin
+                // if (obj_arr[j][ENUML:ENUMR] == `NONE_ENUM) begin
+                //     pix_data <= `BLACK;
+                //     disable loop;
+                // end
+                // if (obj_arr[j][ENUML:ENUMR] == RECTANGLE_ENUM && is_obj_in_rectangle(
+                //     {pix_x, pix_y}, obj[j]))
+                case (obj_arr[j][ENUML:ENUMR])
+                    `NONE_ENUM : begin
+                        pix_data <= `BLACK;
+                        disable loop;
+                    end 
+                    `RECTANGLE_ENUM : begin
+                        if (is_obj_in_rectangle({pix_x, pix_y}, obj_arr[j])) begin
+                            pix_data <= obj_arr[j][COLORL:COLORR];
+                            disable loop;
+                        end
+                    end
+                    `CIRCLE_ENUM : begin
+                        if (is_obj_in_circle({pix_x, pix_y}, obj_arr[j])) begin
+                            pix_data <= obj_arr[j][COLORL:COLORR];
+                            disable loop;
+                        end
+                    end
+                    `ROUNDRECT_ENUM : begin
+                        if (is_obj_in_rounded_rectangle({pix_x, pix_y}, obj_arr[j])) begin
+                            pix_data <= obj_arr[j][COLORL:COLORR];
+                            disable loop;
+                        end
+                    end
+                    default: begin
+                        pix_data <= `BLACK;
+                        disable loop;
+                    end
+                endcase
+            end
         end
     end
 
@@ -286,17 +324,18 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 16, parameter LEN
     input wire clk,
     input wire rst,
     input wire sw,
+
     output wire [(OBJ_WIDTH * MAX_LEN)-1:0] obj_arr_packed,
     output wire [LEN_BITS-1:0] arr_len,
     output wire [15:0] test_pin
 );
     // 内部存储对象的数组
     reg [OBJ_WIDTH-1:0] obj_arr [0:MAX_LEN-1];
-    reg [OBJ_WIDTH-1:0] obj_reg = { 4'd0, 10'd100, 10'd100, 10'd100, 10'd100,10'd100, `GREEN};
+    reg [OBJ_WIDTH-1:0] obj_reg = { `RECTANGLE_ENUM, 10'd100, 10'd100, 10'd100, 10'd100,10'd100, `GREEN};
     
     reg [LEN_BITS-1:0] len = 0;
 
-    assign test_pin = obj_arr[2][11:0];
+    assign test_pin = obj_arr[1][65:62];
 
     // 打包多维数组为一维数组
     // generate 在综合时运行
@@ -307,18 +346,23 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 16, parameter LEN
         end
     endgenerate
 
-    always @(negedge sw) begin
-        if (!rst) begin
-            obj_arr[2] = { 4'd0, 10'd100, 10'd100, 10'd100, 10'd100, 10'd100, `GREEN};
-            // add_obj({ 4'd0, 10'd100, 10'd100, 10'd100, 10'd100,10'd100, `GREEN});
-        end else
-            obj_arr[2] = { 4'd0, 10'd100, 10'd100, 10'd200, 10'd100, 10'd10, `WHITE};
-            // add_obj({ 4'd0, 10'd200, 10'd200, 10'd100, 10'd100,10'd100, `WHITE});
-    end
+    // always @(negedge sw) begin
+    //     if (!rst) begin
+    //         obj_arr[1] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd100, 10'd100, 10'd100, `GREEN};
+    //         // add_obj({ 4'd0, 10'd100, 10'd100, 10'd100, 10'd100,10'd100, `GREEN});
+    //     end else
+    //         obj_arr[1] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd200, 10'd100, 10'd10, `WHITE};
+    //         // add_obj({ 4'd0, 10'd200, 10'd200, 10'd100, 10'd100,10'd100, `WHITE});
+    // end
     
     integer j;
     always@(posedge clk or negedge rst) begin
         if(rst == 1'b0) begin
+            obj_arr[2] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd200, 10'd100, 10'd10, `WHITE};
+            obj_arr[1] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd20, 10'd10, 10'd2, `GREEN};
+            obj_arr[0] = { `CIRCLE_ENUM, 10'd200, 10'd200, 10'd50, 10'd50, 10'd50, `RED};
+            obj_arr[3] = { `NONE_ENUM, 10'd150, 10'd150, 10'd20, 10'd10, 10'd10, `GREEN};
+            
             // for (j = 0; j < MAX_LEN; j = j + 1) begin
             //     obj_arr[j] =  { 4'd0, 10'd200, 10'd200, 10'd100, 10'd100, `WHITE};
             // end
@@ -339,3 +383,4 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 16, parameter LEN
         end
     endtask
 endmodule
+
