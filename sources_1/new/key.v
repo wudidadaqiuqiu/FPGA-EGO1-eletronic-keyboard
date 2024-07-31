@@ -1,18 +1,16 @@
 module audio_port(
     input clk,//100MHZ时钟
-    input SD,//低通滤波器使能
     input [4:0] tone,//音调指令接收
-    output sd,//低通滤波器使能    
+    output wire sd,//低通滤波器使能    
     output reg audio_out//音调输出
     );
  
     reg [20:0] count,COUNT;//分频计数器和预置数变量
     reg [20:0] buffer[20:0];//保存相应频率的预置数
     assign sd=1;
-    assign SD=1;
+
     //寄存器类型变量初始化
-    initial
-      begin 
+    initial begin
         buffer[1]=21'd191110;
         buffer[2]=21'd170259;
         buffer[3]=21'd151685;
@@ -34,24 +32,22 @@ module audio_port(
         buffer[19]=21'd31888;
         buffer[20]=21'd28409;
         buffer[21]=21'd25310;
-      end
+	end
     //分频输出    
-    always @ (posedge clk)          
-          begin
-            if(count>=COUNT&&COUNT!=1)
-                begin
-                count<=0;
-                audio_out<=~audio_out;                  
-                end
-            else if(COUNT==1)
-                audio_out<=0;
-            else
-                count<=count+1'b1;
-          end
+    always @ (posedge clk) begin
+		if(count>=COUNT&&COUNT!=1) begin
+			count<=0;
+			audio_out<=~audio_out;                  
+		end else if(COUNT==1)
+			audio_out<=0;
+		else
+			count<=count+1'b1;
+	end
     //音调指令接收，预置数变化      
-    always @(tone)
-      if(tone>=1&&tone<=21)
-         COUNT=buffer[tone];
-      else
-         COUNT=1;
+    always @(tone) begin
+      	if(tone>=1&&tone<=21)
+			COUNT=buffer[tone];
+      	else
+			COUNT=1;
+	end
 endmodule

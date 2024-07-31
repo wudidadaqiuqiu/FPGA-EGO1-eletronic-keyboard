@@ -324,7 +324,7 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 16, parameter LEN
     input wire clk,
     input wire rst,
     input wire sw,
-
+    input wire [25:0] alpha_table,
     output wire [(OBJ_WIDTH * MAX_LEN)-1:0] obj_arr_packed,
     output wire [LEN_BITS-1:0] arr_len,
     output wire [15:0] test_pin
@@ -359,7 +359,7 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 16, parameter LEN
     always@(posedge clk or negedge rst) begin
         if(rst == 1'b0) begin
             obj_arr[2] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd200, 10'd100, 10'd10, `WHITE};
-            obj_arr[1] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd20, 10'd10, 10'd2, `GREEN};
+            obj_arr[1] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd40, 10'd40, 10'd5, `GREEN};
             obj_arr[0] = { `CIRCLE_ENUM, 10'd200, 10'd200, 10'd50, 10'd50, 10'd50, `RED};
             obj_arr[3] = { `NONE_ENUM, 10'd150, 10'd150, 10'd20, 10'd10, 10'd10, `GREEN};
             
@@ -382,5 +382,59 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 16, parameter LEN
                 len <= 0;
         end
     endtask
+endmodule
+
+module audio_and_vga (
+    input clk,          //100MHZ
+    input rst,
+    // 
+    output wire [15:0] led,
+    // keyboard
+    input PS2C,
+    input PS2D,
+    // sw button
+    input wire [15:0] switchs,
+    input wire but,
+    // audio
+    output sd,          // AUDIO_SD    
+    output  audio_out,   // AUDIO_PWM
+    // vga
+    output wire hsync,vsync,  //VGA行和场信号
+    output wire [3:0] red,green,blue  //输出像素
+);
+    wire    [20:0]  key_table;
+    wire    [20:0]  updated_table;
+    wire    [20:0]  tone;
+    
+    keyboard u1(.clk(clk), .rst(rst), .PS2C(PS2C), .PS2D(PS2D), 
+            .alpha_table(key_table), .updated_table(updated_table));
+    
+    assign tone = (updated_table==21'b0_0000_0000_0000_0000_0001) ? 1:
+                  (updated_table==21'b0_0000_0000_0000_0000_0010) ? 2:
+                  (updated_table==21'b0_0000_0000_0000_0000_0100) ? 3:
+                  (updated_table==21'b0_0000_0000_0000_0000_1000) ? 4:
+                  (updated_table==21'b0_0000_0000_0000_0001_0000) ? 5:
+                  (updated_table==21'b0_0000_0000_0000_0010_0000) ? 6:
+                  (updated_table==21'b0_0000_0000_0000_0100_0000) ? 7:
+                  (updated_table==21'b0_0000_0000_0000_1000_0000) ? 8: 
+                  (updated_table==21'b0_0000_0000_0001_0000_0000) ? 9:
+                  (updated_table==21'b0_0000_0000_0010_0000_0000) ? 10:
+                  (updated_table==21'b0_0000_0000_0100_0000_0000) ? 11:
+                  (updated_table==21'b0_0000_0000_1000_0000_0000) ? 12: 
+                  (updated_table==21'b0_0000_0001_0000_0000_0000) ? 13:
+                  (updated_table==21'b0_0000_0010_0000_0000_0000) ? 14:
+                  (updated_table==21'b0_0000_0100_0000_0000_0000) ? 15:
+                  (updated_table==21'b0_0000_1000_0000_0000_0000) ? 16:
+                  (updated_table==21'b0_0001_0000_0000_0000_0000) ? 17:
+                  (updated_table==21'b0_0010_0000_0000_0000_0000) ? 18:
+                  (updated_table==21'b0_0100_0000_0000_0000_0000) ? 19:
+                  (updated_table==21'b0_1000_0000_0000_0000_0000) ? 20:
+                  (updated_table==21'b1_0000_0000_0000_0000_0000) ? 21:0;
+    audio_port audio(
+        .clk(clk),//100MHZ时钟
+        .tone(tone),//音调指令接收
+        .sd(sd),//低通滤波器使能
+        .audio_out(audio_out)//音调输出
+    );
 endmodule
 

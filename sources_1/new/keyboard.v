@@ -193,20 +193,20 @@ endmodule
 module key_process (
 	input wire clk,
 	input wire rst,
-	input wire [20:0] key_out,
-	output reg [20:0] updated_key
+	input wire [20:0] alpha_table,
+	output reg [20:0] updated_table
 	);
 	reg [20:0] pre_key_out=21'b0;
 	always@(posedge clk) begin
 		if (!rst) begin
-			pre_key_out <= key_out;
-			updated_key <= 0;			
+			pre_key_out <= alpha_table;
+			updated_table <= 0;
 		end else begin
-			pre_key_out <= key_out;
-			if (pre_key_out < key_out) begin
-				updated_key <= (key_out - pre_key_out);
-			end else if (pre_key_out > key_out) begin
-				updated_key <= key_out;
+			pre_key_out <= alpha_table;
+			if (pre_key_out < alpha_table) begin
+				updated_table <= (alpha_table - pre_key_out);
+			end else if (pre_key_out > alpha_table) begin
+				updated_table <= alpha_table;
 			end
 		end
     end
@@ -218,8 +218,8 @@ module keyboard (
     input PS2C,
     input PS2D,
     output wire [20:0] alpha_table,
-	output wire [20:0] updated_key
+	output wire [20:0] updated_table
 );
 	keyboard_driver driver(.clk(clk), .rst(rst), .PS2C(PS2C), .PS2D(PS2D), .alpha_table(alpha_table));
-	key_process process(.clk(clk), .rst(rst))
+	key_process process(.clk(clk), .rst(rst), .alpha_table(alpha_table), .updated_table(updated_table));
 endmodule

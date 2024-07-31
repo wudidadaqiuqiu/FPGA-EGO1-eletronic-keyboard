@@ -4,6 +4,12 @@ set_property CONFIG_VOLTAGE 3.3 [current_design]
 set_property -dict {PACKAGE_PIN P17 IOSTANDARD LVCMOS33} [get_ports clk]
 set_property -dict {PACKAGE_PIN P15 IOSTANDARD LVCMOS33} [get_ports rst]
 
+# audio
+set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports sd]
+set_property -dict {PACKAGE_PIN T1 IOSTANDARD LVCMOS33} [get_ports audio_out]
+# PS2
+set_property -dict {PACKAGE_PIN K5 IOSTANDARD LVCMOS33} [get_ports  PS2C  ]
+set_property -dict {PACKAGE_PIN L4 IOSTANDARD LVCMOS33} [get_ports  PS2D ]
 #////////////////////////////////////VGA行同步场同步信号///////////////////////////////
 set_property -dict {PACKAGE_PIN D7 IOSTANDARD LVCMOS33} [get_ports hsync]
 set_property -dict {PACKAGE_PIN C4 IOSTANDARD LVCMOS33} [get_ports {vsync}]
