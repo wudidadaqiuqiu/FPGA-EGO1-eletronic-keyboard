@@ -42,7 +42,9 @@ module vga_test(
     // output wire [0:7] led,   //LED灯
     output wire hsync,vsync,  //VGA行和场信号
     output wire [3:0] red,green,blue,  //输出像素
-    output wire [15:0] led
+    output wire [15:0] led,
+    input wire [20:0] alpha_table,
+    input wire [20:0] updated_table
 );
 
 wire vga_clk;
@@ -74,7 +76,9 @@ basic_graph #(.OBJ_WIDTH(OBJ_WIDTH), .MAX_LEN(MAX_LEN)) graph(.vga_clk(vga_clk),
                     .obj_arr_packed(obj_arr_packed), 
                     .obj_arr_len(obj_arr_len), .pix_data(pix_data));
 painter #(.OBJ_WIDTH(OBJ_WIDTH), .MAX_LEN(MAX_LEN)) u2(
-        .clk(clk), .rst(rst), .sw(butf), 
+        .clk(clk), .rst(rst), .sw(butf),
+        .alpha_table(alpha_table),
+        .updated_table(updated_table),
         .obj_arr_packed(obj_arr_packed), .arr_len(obj_arr_len), .test_pin(led));
 
 endmodule
@@ -170,7 +174,7 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
     input wire [(OBJ_WIDTH * MAX_LEN)-1:0] obj_arr_packed,
     input wire [LEN_BITS-1:0] obj_arr_len,
     output reg [11:0] pix_data //输出像素点色彩信息
-);
+    );
     reg [16:0]      rom_addr;
     reg rom_ena = 1'b1;
     wire [11:0]      douta;
@@ -364,7 +368,7 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
         end else begin  : loop
             for (j = 0; j < MAX_LEN; j = j + 1) begin
                 if (obj_arr[j][ENUML:ENUMR] == `NONE_ENUM) begin
-                    pix_data <= `GREEN;
+                    pix_data <= `BLACK;
                     disable loop;
                 end else if (obj_arr[j][ENUML:ENUMR] == `ROUNDRECT_ENUM) begin
                     if (is_obj_in_rounded_rectangle({pix_x, pix_y}, obj_arr[j])) begin
@@ -391,7 +395,7 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
                         // rom_addr <= (pix_y - obj_arr[j][YL:YR]) * 16'd16;
                     end
                 end else begin
-                    pix_data <= `GREEN;
+                    pix_data <= `BLACK;
                     disable loop;
                 end
                 // if (obj_arr[j][ENUML:ENUMR] == RECTANGLE_ENUM && is_obj_in_rectangle(
@@ -436,7 +440,8 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
     input wire clk,
     input wire rst,
     input wire sw,
-    // input wire [25:0] alpha_table,
+    input wire [20:0] alpha_table,
+    input wire [20:0] updated_table,
     output wire [(OBJ_WIDTH * MAX_LEN)-1:0] obj_arr_packed,
     output wire [LEN_BITS-1:0] arr_len,
     output wire [15:0] test_pin
@@ -444,6 +449,28 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
     parameter [9:0] KEYBOARD_X = 80, KEYBOARD_Y = 120, KEY_WIDTH = 45, 
                 KEY_HEIGHT = 40, KEY_D1 = 10, KEY_D2 = 20+40,
                 KEY_D3 = 30, KEY_D4 = 40, KEY_D5 = 120;
+
+    parameter 
+        ENUML = 65,
+        ENUMR = 65 - 4 + 1,
+        XL= ENUMR-1,
+        XR = ENUMR-10,
+        YL = XR - 1,
+        YR = XR - 10,
+        WIDTHL = YR - 1,
+        WIDTHR = YR - 10,
+        HEIGHTL = WIDTHR - 1,
+        HEIGHTR = WIDTHR - 10,
+        RADIUSL = HEIGHTR - 1,
+        RADIUSR = HEIGHTR - 10,
+        COLORL = RADIUSR - 1,
+        COLORR = 0,
+        POSXL = 19,
+        POSXR = 10,
+        POSYL = 9,
+        POSYR = 0,
+        SCREEN_WIDTH = 640,
+        SCREEN_HEIGHT = 480;
 
     parameter [OBJ_WIDTH-1:0] NONE = {`NONE_ENUM, 10'd0, 10'd0, 10'd0, 10'd0, 10'd0, `WHITE};
     // Local parameters with int_to_10 function applied
@@ -475,31 +502,6 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
 
     // 内部存储对象的数组
     reg [OBJ_WIDTH-1:0] obj_arr [0:MAX_LEN-1];
-    initial begin
-        // obj_arr[0] = Q_OBJ;
-        // obj_arr[1] = W_OBJ;
-        // obj_arr[2] = E_OBJ;
-        // obj_arr[3] = R_OBJ;
-        // obj_arr[4] = T_OBJ;
-        // obj_arr[5] = Y_OBJ;
-        // obj_arr[6] = U_OBJ;
-
-        // obj_arr[7] = A_OBJ;
-        // obj_arr[8] = S_OBJ;
-        // obj_arr[9] = D_OBJ;
-        // obj_arr[10] = F_OBJ;
-        // obj_arr[11] = G_OBJ;
-        // obj_arr[12] = H_OBJ;
-        // obj_arr[13] = J_OBJ;
-
-        // obj_arr[14] = Z_OBJ;
-        // obj_arr[15] = X_OBJ;
-        // obj_arr[16] = C_OBJ;
-        // obj_arr[17] = V_OBJ;
-        // obj_arr[18] = B_OBJ;
-        // obj_arr[19] = N_OBJ;
-        // obj_arr[20] = M_OBJ;
-    end
 
     reg [OBJ_WIDTH-1:0] obj_reg = { `RECTANGLE_ENUM, 10'd100, 10'd100, 10'd100, 10'd100,10'd100, `GREEN};
     
@@ -507,6 +509,46 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
 
     assign test_pin = obj_arr[1][65:62];
 
+    integer i1;
+    always @(posedge clk or negedge rst) begin
+        if(rst == 1'b0) begin
+            obj_arr[0] <= Q_OBJ;
+            obj_arr[1] <= W_OBJ;
+            obj_arr[2] <= E_OBJ;
+            obj_arr[3] <= R_OBJ;
+            obj_arr[4] <= T_OBJ;
+            obj_arr[5] <= Y_OBJ;
+            obj_arr[6] <= U_OBJ;
+
+            obj_arr[7] <= A_OBJ;
+            obj_arr[8] <= S_OBJ;
+            obj_arr[9] <= D_OBJ;
+            obj_arr[10] <= F_OBJ;
+            obj_arr[11] <= G_OBJ;
+            obj_arr[12] <= H_OBJ;
+            obj_arr[13] <= J_OBJ;
+
+            obj_arr[14] <= Z_OBJ;
+            obj_arr[15] <= X_OBJ;
+            obj_arr[16] <= C_OBJ;
+            obj_arr[17] <= V_OBJ;
+            obj_arr[18] <= B_OBJ;
+            obj_arr[19] <= N_OBJ;
+            obj_arr[20] <= M_OBJ;
+            obj_arr[21] <= NONE;
+        end else if (!alpha_table) begin 
+            for (i1 = 0; i1 < MAX_LEN; i1 = i1 + 1) begin
+                obj_arr[i1][COLORL:COLORR] <= `WHITE;
+            end
+        end else begin
+            for (i1 = 0; i1 < 21; i1 = i1 + 1) begin
+                if ((alpha_table >> i1) % 2) begin
+                    obj_arr[i1][COLORL:COLORR] <= `GREY;
+                end
+            end
+            // obj_arr[updated_table/2][COLORL:COLORR] <= `GREY;
+        end
+    end
     // 打包多维数组为一维数组
     // generate 在综合时运行
     genvar i;
@@ -535,87 +577,38 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
             int_to_10 = i[9:0];
         end
     endfunction
-    integer j;
-    always@(posedge clk or negedge rst) begin
-        if(rst == 1'b0) begin
-            obj_arr[0] <= Q_OBJ;
-            obj_arr[1] <= W_OBJ;
-            obj_arr[2] <= E_OBJ;
-            obj_arr[3] <= R_OBJ;
-            obj_arr[4] <= T_OBJ;
-            obj_arr[5] <= Y_OBJ;
-            obj_arr[6] <= U_OBJ;
+    // integer j;
+    // always@(posedge clk or negedge rst) begin
+    //     if(rst == 1'b0) begin
+    //         obj_arr[0] <= Q_OBJ;
+    //         obj_arr[1] <= W_OBJ;
+    //         obj_arr[2] <= E_OBJ;
+    //         obj_arr[3] <= R_OBJ;
+    //         obj_arr[4] <= T_OBJ;
+    //         obj_arr[5] <= Y_OBJ;
+    //         obj_arr[6] <= U_OBJ;
 
-            obj_arr[7] = A_OBJ;
-            obj_arr[8] = S_OBJ;
-            obj_arr[9] = D_OBJ;
-            obj_arr[10] = F_OBJ;
-            obj_arr[11] = G_OBJ;
-            obj_arr[12] = H_OBJ;
-            obj_arr[13] = J_OBJ;
+    //         obj_arr[7] = A_OBJ;
+    //         obj_arr[8] = S_OBJ;
+    //         obj_arr[9] = D_OBJ;
+    //         obj_arr[10] = F_OBJ;
+    //         obj_arr[11] = G_OBJ;
+    //         obj_arr[12] = H_OBJ;
+    //         obj_arr[13] = J_OBJ;
 
-            obj_arr[14] = Z_OBJ;
-            obj_arr[15] = X_OBJ;
-            obj_arr[16] = C_OBJ;
-            obj_arr[17] = V_OBJ;
-            obj_arr[18] = B_OBJ;
-            obj_arr[19] = N_OBJ;
-            obj_arr[20] = M_OBJ;
-            obj_arr[21] = NONE;
-
-            // obj_arr[2] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd200, 10'd100, 10'd10, `WHITE};
-            // obj_arr[1] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd40, 10'd40, 10'd5, `GREEN};
-            // obj_arr[0] = { `CIRCLE_ENUM, 10'd200, 10'd200, 10'd50, 10'd50, 10'd50, `RED};
-            // obj_arr[3] = { `NONE_ENUM, 10'd150, 10'd150, 10'd20, 10'd10, 10'd10, `GREEN};
-            // obj_arr[2] = { `ROUNDRECT_ENUM, 10'd80, 10'd100, 10'd200, 10'd100, 10'd10, `WHITE};
-
-            // obj_arr[0] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X), int_to_10(KEYBOARD_Y), 
-            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
-            // obj_arr[1] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1)), int_to_10(KEYBOARD_Y), 
-            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
-            // obj_arr[2] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 2), int_to_10(KEYBOARD_Y), 
-            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
-            // obj_arr[3] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 3), int_to_10(KEYBOARD_Y), 
-            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
-            // obj_arr[4] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 4), int_to_10(KEYBOARD_Y), 
-            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
-            // obj_arr[5] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 5), int_to_10(KEYBOARD_Y), 
-            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
-            // obj_arr[6] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 6), int_to_10(KEYBOARD_Y),
-            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
-
-            // obj_arr[7] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 0 + KEY_D3), int_to_10(KEYBOARD_Y + KEY_D2), 
-            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
-            // obj_arr[7+1] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 1 + KEY_D3), int_to_10(KEYBOARD_Y + KEY_D2), 
-            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
-            // obj_arr[7+2] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 2 + KEY_D3), int_to_10(KEYBOARD_Y + KEY_D2), 
-            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
-            // obj_arr[7+3] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 3 + KEY_D3), int_to_10(KEYBOARD_Y + KEY_D2), 
-            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
-            // obj_arr[7+4] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 4 + KEY_D3), int_to_10(KEYBOARD_Y + KEY_D2),
-            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
-            // obj_arr[7+5] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 5 + KEY_D3), int_to_10(KEYBOARD_Y + KEY_D2), 
-            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
-            // obj_arr[7+6] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 6 + KEY_D3), int_to_10(KEYBOARD_Y + KEY_D2), 
-            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
-
-            // for (j = 0; j < MAX_LEN; j = j + 1) begin
-            //     if (j / 7 == 0) begin
-            //         obj_arr[j] =  { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + j * (KEY_WIDTH + KEY_D1)), 
-            //             int_to_10(KEYBOARD_Y), int_to_10(KEY_WIDTH), int_to_10(KEYBOARD_HEIGHT), 10'd0, `WHITE};
-            //     end else if (j / 7 == 1) begin
-            //         obj_arr[j] =  { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (j - 7) * (KEY_WIDTH + KEY_D1) + KEY_D3),
-            //             int_to_10(KEYBOARD_Y + KEY_D2), int_to_10(KEY_WIDTH), int_to_10(KEYBOARD_HEIGHT), 10'd0, `WHITE};
-            //     end else if (j / 7 == 2) begin
-            //         obj_arr[j] =  { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (j - 14) * (KEY_WIDTH + KEY_D1) + KEY_D3 + KEY_D4),
-            //             int_to_10(KEYBOARD_Y + KEY_D2 * 2), int_to_10(KEY_WIDTH), int_to_10(KEYBOARD_HEIGHT), 10'd0, `WHITE};
-            //     end
-            // end
-        end else begin
-            // 
-            // add_obj(obj_reg);
-        end
-    end
+    //         obj_arr[14] = Z_OBJ;
+    //         obj_arr[15] = X_OBJ;
+    //         obj_arr[16] = C_OBJ;
+    //         obj_arr[17] = V_OBJ;
+    //         obj_arr[18] = B_OBJ;
+    //         obj_arr[19] = N_OBJ;
+    //         obj_arr[20] = M_OBJ;
+    //         obj_arr[21] = NONE;
+    //     end else begin
+    //         // 
+    //         // add_obj(obj_reg);
+    //     end
+    // end
 
     task add_obj;
         input [OBJ_WIDTH-1:0] obj;
@@ -692,6 +685,8 @@ module audio_and_vga (
         .red(red),
         .green(green),
         .blue(blue),  //输出像素
-        .led(led)
+        .led(led),
+        .alpha_table(key_table),
+        .updated_table(updated_table)
     );
 endmodule
