@@ -63,7 +63,7 @@ vga_driver vga(
 
 
 
-parameter OBJ_WIDTH = 66, MAX_LEN = 21;
+parameter OBJ_WIDTH = 66, MAX_LEN = 23;
 wire [(OBJ_WIDTH * MAX_LEN)-1:0] obj_arr_packed;
 
 wire butf;
@@ -193,6 +193,8 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
             SCREEN_WIDTH = 640,
             SCREEN_HEIGHT = 480;
 
+    parameter [511:0] AZIMO =   512'h00000000000000000000000001000380028006C004400C6008201830101030183FF8600C4004C006800280030000000000000000000000000000000000000000;
+    // parameter [511:0] MASK =    512'h10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000;
     function is_in_screen;
     input [19:0] pos;
     begin
@@ -280,15 +282,26 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
         end else begin  : loop
             for (j = 0; j < MAX_LEN; j = j + 1) begin
                 if (obj_arr[j][ENUML:ENUMR] == `NONE_ENUM) begin
-                    pix_data <= `BLACK;
+                    pix_data <= `GREEN;
                     disable loop;
                 end else if (obj_arr[j][ENUML:ENUMR] == `ROUNDRECT_ENUM) begin
-                    if (is_obj_in_rounded_rectangle({pix_x, pix_y}, obj_arr[j])) begin
+                    if (is_obj_in_rectangle({pix_x, pix_y}, obj_arr[j])) begin
                             pix_data <= obj_arr[j][COLORL:COLORR];
+                            // if (((pix_x) < 10'd16 + obj_arr[j][XL:XR]) && ((pix_y) < 10'd32 + obj_arr[j][YL:YR])) begin
+                            //     if ((AZIMO << ((pix_x - obj_arr[j][XL:XR]) + (pix_y - obj_arr[j][YL:YR]) * 10'd16)) >> 511) begin
+                            //         pix_data <= obj_arr[j][COLORL:COLORR];
+                            //     end else begin
+                            //         pix_data <= `BLACK;
+                            //     end
+                            //     // pix_data <= obj_arr[j][COLORL:COLORR];
+                            // end else begin
+                            //     pix_data <= `BLACK;
+                            //     // pix_data <= obj_arr[j][COLORL:COLORR];
+                            // end
                             disable loop;
                     end
                 end else begin
-                    pix_data <= `BLACK;
+                    pix_data <= `GREEN;
                     disable loop;
                 end
                 // if (obj_arr[j][ENUML:ENUMR] == RECTANGLE_ENUM && is_obj_in_rectangle(
@@ -363,11 +376,11 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
         
         Z_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + KEY_D4), (KEYBOARD_Y + KEY_D5), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
         X_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + (KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + KEY_D5), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
-        C_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd2*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + KEY_D5), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
-        V_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd3*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + KEY_D5), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
-        B_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd4*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + KEY_D5), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
-        N_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd5*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + KEY_D5), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
-        M_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd6*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + KEY_D5), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE};
+        C_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 10'd2*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + KEY_D5), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        V_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 10'd3*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + KEY_D5), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        B_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 10'd4*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + KEY_D5), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        N_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 10'd5*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + KEY_D5), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        M_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 10'd6*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + KEY_D5), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE};
 
 
     // 内部存储对象的数组
@@ -452,12 +465,13 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
             obj_arr[13] = J_OBJ;
 
             obj_arr[14] = Z_OBJ;
-            // obj_arr[15] = X_OBJ;
-            // obj_arr[16] = C_OBJ;
-            // obj_arr[17] = V_OBJ;
-            // obj_arr[18] = B_OBJ;
-            // obj_arr[19] = N_OBJ;
-            // obj_arr[20] = M_OBJ;
+            obj_arr[15] = X_OBJ;
+            obj_arr[16] = C_OBJ;
+            obj_arr[17] = V_OBJ;
+            obj_arr[18] = B_OBJ;
+            obj_arr[19] = N_OBJ;
+            obj_arr[20] = M_OBJ;
+            obj_arr[21] = NONE;
 
             // obj_arr[2] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd200, 10'd100, 10'd10, `WHITE};
             // obj_arr[1] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd40, 10'd40, 10'd5, `GREEN};
