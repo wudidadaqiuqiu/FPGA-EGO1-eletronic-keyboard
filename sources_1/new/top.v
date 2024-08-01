@@ -213,15 +213,15 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
     input [19:0] pos;
     input [OBJ_WIDTH-1:0] obj;
 
-    reg signed [31:0] dis_sq;
-    reg signed [31:0] r_2;
-    reg signed [31:0] tempx, tempy;
+    reg [19:0] dis_sq;
+    // reg [31:0] r_2;
+    reg [19:0] tempx, tempy;
     begin
-        tempx = (pos[POSXL:POSXR] - obj[XL:XR]);
-        tempy = (pos[POSYL:POSYR] - obj[YL:YR]);
+        tempx = (pos[POSXL:POSXR] > obj[XL:XR]) ? (pos[POSXL:POSXR] - obj[XL:XR]) : (obj[XL:XR] - pos[POSXL:POSXR]);
+        tempy = (pos[POSYL:POSYR] > obj[YL:YR]) ? (pos[POSYL:POSYR] - obj[YL:YR]) : (obj[YL:YR] - pos[POSYL:POSYR]);
         dis_sq = tempx * tempx + tempy * tempy;
-        r_2 = obj[RADIUSL:RADIUSR] * obj[RADIUSL:RADIUSR];
-        is_obj_in_circle = (dis_sq < r_2);
+        // r_2 = ;
+        is_obj_in_circle = (dis_sq < obj[RADIUSL:RADIUSR] * obj[RADIUSL:RADIUSR] * 32'd1);
     end
     endfunction
 
@@ -235,26 +235,26 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
     input [19:0] pos;
     input [OBJ_WIDTH-1:0] obj;
 
-    reg signed [31:0] X,Y,W,H,R;
-
+    reg [9:0] X,Y,W,H,R;
+    
     begin
         X = obj[XL: XR];
         Y = obj[YL: YR];
         W = obj[WIDTHL:WIDTHR];
         H = obj[HEIGHTL:HEIGHTR];
         R = obj[RADIUSL:RADIUSR];
-        if (2 * R >= W || 2 * R >= H)
+        if (32'd2 * R >= 32'd1 * W || 32'd2 * R >= 32'd1 * H)
             is_obj_in_rounded_rectangle = 0;
         else begin
             is_obj_in_rounded_rectangle = (
-                is_obj_in_rectangle(pos, {4'd0, int_to_10(X+R), int_to_10(Y), 
-                                    int_to_10(W - 2*R), int_to_10(H), 10'd0, 12'd0}) ||
-                is_obj_in_rectangle(pos, {4'd0, int_to_10(X), int_to_10(Y+R), 
-                                    int_to_10(W), int_to_10(H - 2*R), 10'd0, 12'd0}) ||
-                is_obj_in_circle(pos,    {4'd0, int_to_10(X+R), int_to_10(Y+R), 10'd0, 10'd0, int_to_10(R), 12'd0}) ||
-                is_obj_in_circle(pos,    {4'd0, int_to_10(X+W-R), int_to_10(Y+R), 10'd0, 10'd0, int_to_10(R), 12'd0}) ||
-                is_obj_in_circle(pos,    {4'd0, int_to_10(X+R), int_to_10(Y+H-R), 10'd0, 10'd0, int_to_10(R), 12'd0}) ||
-                is_obj_in_circle(pos,    {4'd0, int_to_10(X+W-R), int_to_10(Y+H-R), 10'd0, 10'd0, int_to_10(R), 12'd0})
+                is_obj_in_rectangle(pos, {4'd0, (X+R), (Y), 
+                                    (W - 3'd2*R), (H), 10'd0, 12'd0}) ||
+                is_obj_in_rectangle(pos, {4'd0, (X), (Y+R), 
+                                    (W), (H - 3'd2*R), 10'd0, 12'd0}) ||
+                is_obj_in_circle(pos,    {4'd0, (X+R), (Y+R), 10'd0, 10'd0, (R), 12'd0}) ||
+                is_obj_in_circle(pos,    {4'd0, (X+W-R), (Y+R), 10'd0, 10'd0, (R), 12'd0}) ||
+                is_obj_in_circle(pos,    {4'd0, (X+R), (Y+H-R), 10'd0, 10'd0, (R), 12'd0}) ||
+                is_obj_in_circle(pos,    {4'd0, (X+W-R), (Y+H-R), 10'd0, 10'd0, (R), 12'd0})
             ) ? 1 : 0;
         end
     end
@@ -339,12 +339,12 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
     output wire [15:0] test_pin
 );  
     parameter [9:0] KEYBOARD_X = 80, KEYBOARD_Y = 120, KEY_WIDTH = 40, 
-                KEY_HEIGHT = 40, KEY_D1 = 10, KEY_D2 = 20,
-                KEY_D3 = 30, KEY_D4 = 40;
+                KEY_HEIGHT = 40, KEY_D1 = 10, KEY_D2 = 20+40,
+                KEY_D3 = 30, KEY_D4 = 40, KEY_D5 = 120;
 
     parameter [OBJ_WIDTH-1:0] NONE = {`NONE_ENUM, 10'd0, 10'd0, 10'd0, 10'd0, 10'd0, `WHITE};
     // Local parameters with int_to_10 function applied
-    localparam [OBJ_WIDTH-1:0] 
+    parameter [OBJ_WIDTH-1:0] 
         Q_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X), (KEYBOARD_Y), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
         W_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + (KEY_WIDTH + KEY_D1)), (KEYBOARD_Y), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
         E_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd2*(KEY_WIDTH + KEY_D1)), (KEYBOARD_Y), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
@@ -361,41 +361,41 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
         H_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd5*(KEY_WIDTH + KEY_D1) + KEY_D3), (KEYBOARD_Y + KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
         J_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd6*(KEY_WIDTH + KEY_D1) + KEY_D3), (KEYBOARD_Y + KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
         
-        Z_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + KEY_D4), (KEYBOARD_Y + 3'd2*KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd0, `WHITE},
-        X_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + (KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + 3'd2*KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
-        C_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd2*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + 3'd2*KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
-        V_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd3*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + 3'd2*KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
-        B_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd4*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + 3'd2*KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
-        N_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd5*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + 3'd2*KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
-        M_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd6*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + 3'd2*KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE};
+        Z_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + KEY_D4), (KEYBOARD_Y + KEY_D5), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        X_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + (KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + KEY_D5), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        C_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd2*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + KEY_D5), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        V_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd3*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + KEY_D5), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        B_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd4*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + KEY_D5), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        N_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd5*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + KEY_D5), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        M_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd6*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + KEY_D5), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE};
 
 
     // 内部存储对象的数组
     reg [OBJ_WIDTH-1:0] obj_arr [0:MAX_LEN-1];
     initial begin
-        obj_arr[0] = Q_OBJ;
-        obj_arr[1] = W_OBJ;
-        obj_arr[2] = E_OBJ;
-        obj_arr[3] = R_OBJ;
-        obj_arr[4] = T_OBJ;
-        obj_arr[5] = Y_OBJ;
-        obj_arr[6] = U_OBJ;
+        // obj_arr[0] = Q_OBJ;
+        // obj_arr[1] = W_OBJ;
+        // obj_arr[2] = E_OBJ;
+        // obj_arr[3] = R_OBJ;
+        // obj_arr[4] = T_OBJ;
+        // obj_arr[5] = Y_OBJ;
+        // obj_arr[6] = U_OBJ;
 
-        obj_arr[7] = A_OBJ;
-        obj_arr[8] = S_OBJ;
-        obj_arr[9] = D_OBJ;
-        obj_arr[10] = F_OBJ;
-        obj_arr[11] = G_OBJ;
-        obj_arr[12] = H_OBJ;
-        obj_arr[13] = J_OBJ;
+        // obj_arr[7] = A_OBJ;
+        // obj_arr[8] = S_OBJ;
+        // obj_arr[9] = D_OBJ;
+        // obj_arr[10] = F_OBJ;
+        // obj_arr[11] = G_OBJ;
+        // obj_arr[12] = H_OBJ;
+        // obj_arr[13] = J_OBJ;
 
-        obj_arr[14] = Z_OBJ;
-        obj_arr[15] = X_OBJ;
-        obj_arr[16] = C_OBJ;
-        obj_arr[17] = V_OBJ;
-        obj_arr[18] = B_OBJ;
-        obj_arr[19] = N_OBJ;
-        obj_arr[20] = M_OBJ;
+        // obj_arr[14] = Z_OBJ;
+        // obj_arr[15] = X_OBJ;
+        // obj_arr[16] = C_OBJ;
+        // obj_arr[17] = V_OBJ;
+        // obj_arr[18] = B_OBJ;
+        // obj_arr[19] = N_OBJ;
+        // obj_arr[20] = M_OBJ;
     end
 
     reg [OBJ_WIDTH-1:0] obj_reg = { `RECTANGLE_ENUM, 10'd100, 10'd100, 10'd100, 10'd100,10'd100, `GREEN};
@@ -435,29 +435,30 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
     integer j;
     always@(posedge clk or negedge rst) begin
         if(rst == 1'b0) begin
-            obj_arr[0] = Q_OBJ;
-            obj_arr[1] = W_OBJ;
-            obj_arr[2] = E_OBJ;
-            obj_arr[3] = R_OBJ;
-            // obj_arr[4] = T_OBJ;
-            // obj_arr[5] = Y_OBJ;
-            // obj_arr[6] = U_OBJ;
+            obj_arr[0] <= Q_OBJ;
+            obj_arr[1] <= W_OBJ;
+            obj_arr[2] <= E_OBJ;
+            obj_arr[3] <= R_OBJ;
+            obj_arr[4] <= T_OBJ;
+            obj_arr[5] <= Y_OBJ;
+            obj_arr[6] <= U_OBJ;
 
-            // obj_arr[7] = A_OBJ;
-            // obj_arr[8] = S_OBJ;
-            // obj_arr[9] = D_OBJ;
-            // obj_arr[10] = F_OBJ;
-            // obj_arr[11] = G_OBJ;
-            // obj_arr[12] = H_OBJ;
-            // obj_arr[13] = J_OBJ;
+            obj_arr[7] = A_OBJ;
+            obj_arr[8] = S_OBJ;
+            obj_arr[9] = D_OBJ;
+            obj_arr[10] = F_OBJ;
+            obj_arr[11] = G_OBJ;
+            obj_arr[12] = H_OBJ;
+            obj_arr[13] = J_OBJ;
 
-            // obj_arr[14] = Z_OBJ;
+            obj_arr[14] = Z_OBJ;
             // obj_arr[15] = X_OBJ;
             // obj_arr[16] = C_OBJ;
             // obj_arr[17] = V_OBJ;
             // obj_arr[18] = B_OBJ;
             // obj_arr[19] = N_OBJ;
             // obj_arr[20] = M_OBJ;
+
             // obj_arr[2] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd200, 10'd100, 10'd10, `WHITE};
             // obj_arr[1] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd40, 10'd40, 10'd5, `GREEN};
             // obj_arr[0] = { `CIRCLE_ENUM, 10'd200, 10'd200, 10'd50, 10'd50, 10'd50, `RED};
