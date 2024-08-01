@@ -205,20 +205,8 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
     input wire [(OBJ_WIDTH * MAX_LEN)-1:0] obj_arr_packed,
     input wire [LEN_BITS-1:0] obj_arr_len,
     output reg [11:0] pix_data, //输出像素点色彩信息
-    // input  wire [44-1:0] song_,
     input wire [12-1:0] song_pix
     );
-    // reg [16:0]      rom_addr;
-    // reg rom_ena = 1'b1;
-    // wire [11:0]      douta;
-
-    // rom u1 (
-    //     .clka(vga_clk),    // input wire clka
-    //     .ena(rom_ena),      // input wire ena
-    //     .addra(rom_addr),  // input wire [19 : 0] addra
-    //     .douta(douta)  // output wire [11 : 0] douta
-    // );
-
 
     parameter 
             ENUML = 65,
@@ -267,98 +255,76 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
     assign ALPHA_TABLE[20] = `MZIMO;
 
     function is_in_screen;
-    input [19:0] pos;
-    begin
-        is_in_screen = (pos[POSXL:POSXR] >= 0 && pos[POSXL:POSXR] <= SCREEN_WIDTH &&
-                        pos[POSYL:POSYR] >= 0 && pos[POSYL:POSYR] <= SCREEN_HEIGHT);
-    end
+        input [19:0] pos;
+        begin
+            is_in_screen = (pos[POSXL:POSXR] >= 0 && pos[POSXL:POSXR] <= SCREEN_WIDTH &&
+                            pos[POSYL:POSYR] >= 0 && pos[POSYL:POSYR] <= SCREEN_HEIGHT);
+        end
     endfunction
     function is_obj_in_rectangle;
-    input [19:0] pos;
-    input [OBJ_WIDTH-1:0] obj;
-    begin
-        is_obj_in_rectangle = (pos[19:10] >= obj[XL: XR] && pos[19:10] < obj[XL:XR] + obj[WIDTHL:WIDTHR]
-                        && pos[9:0] >= obj[YL: YR] && pos[9:0] < obj[YL:YR] + obj[HEIGHTL:HEIGHTR]);
-    end
+        input [19:0] pos;
+        input [OBJ_WIDTH-1:0] obj;
+        begin
+            is_obj_in_rectangle = (pos[19:10] >= obj[XL: XR] && pos[19:10] < obj[XL:XR] + obj[WIDTHL:WIDTHR]
+                            && pos[9:0] >= obj[YL: YR] && pos[9:0] < obj[YL:YR] + obj[HEIGHTL:HEIGHTR]);
+        end
     endfunction
 
     function is_obj_in_circle;
-    input [19:0] pos;
-    input [OBJ_WIDTH-1:0] obj;
+        input [19:0] pos;
+        input [OBJ_WIDTH-1:0] obj;
 
-    reg [19:0] dis_sq;
-    // reg [31:0] r_2;
-    reg [19:0] tempx, tempy;
-    begin
-        tempx = (pos[POSXL:POSXR] > obj[XL:XR]) ? (pos[POSXL:POSXR] - obj[XL:XR]) : (obj[XL:XR] - pos[POSXL:POSXR]);
-        tempy = (pos[POSYL:POSYR] > obj[YL:YR]) ? (pos[POSYL:POSYR] - obj[YL:YR]) : (obj[YL:YR] - pos[POSYL:POSYR]);
-        dis_sq = tempx * tempx + tempy * tempy;
-        // r_2 = ;
-        is_obj_in_circle = (dis_sq < obj[RADIUSL:RADIUSR] * obj[RADIUSL:RADIUSR] * 20'd1);
-    end
+        reg [19:0] dis_sq;
+        // reg [31:0] r_2;
+        reg [19:0] tempx, tempy;
+        begin
+            tempx = (pos[POSXL:POSXR] > obj[XL:XR]) ? (pos[POSXL:POSXR] - obj[XL:XR]) : (obj[XL:XR] - pos[POSXL:POSXR]);
+            tempy = (pos[POSYL:POSYR] > obj[YL:YR]) ? (pos[POSYL:POSYR] - obj[YL:YR]) : (obj[YL:YR] - pos[POSYL:POSYR]);
+            dis_sq = tempx * tempx + tempy * tempy;
+            // r_2 = ;
+            is_obj_in_circle = (dis_sq < obj[RADIUSL:RADIUSR] * obj[RADIUSL:RADIUSR] * 20'd1);
+        end
     endfunction
 
     function [9:0] int_to_10;
-    input integer i;
+        input integer i;
         begin
             int_to_10 = i[9:0];
         end
     endfunction
     function is_obj_in_rounded_rectangle;
-    input [19:0] pos;
-    input [OBJ_WIDTH-1:0] obj;
+        input [19:0] pos;
+        input [OBJ_WIDTH-1:0] obj;
 
-    reg [9:0] X,Y,W,H,R;
-    
-    begin
-        X = obj[XL: XR];
-        Y = obj[YL: YR];
-        W = obj[WIDTHL:WIDTHR];
-        H = obj[HEIGHTL:HEIGHTR];
-        R = obj[RADIUSL:RADIUSR];
-        if (32'd2 * R >= 32'd1 * W || 32'd2 * R >= 32'd1 * H)
-            is_obj_in_rounded_rectangle = 0;
-        else begin
-            is_obj_in_rounded_rectangle = (
-                is_obj_in_rectangle(pos, {4'd0, (X+R), (Y), 
-                                    (W - 3'd2*R), (H), 10'd0, 12'd0}) ||
-                is_obj_in_rectangle(pos, {4'd0, (X), (Y+R), 
-                                    (W), (H - 3'd2*R), 10'd0, 12'd0}) ||
-                is_obj_in_circle(pos,    {4'd0, (X+R), (Y+R), 10'd0, 10'd0, (R), 12'd0}) ||
-                is_obj_in_circle(pos,    {4'd0, (X+W-R), (Y+R), 10'd0, 10'd0, (R), 12'd0}) ||
-                is_obj_in_circle(pos,    {4'd0, (X+R), (Y+H-R), 10'd0, 10'd0, (R), 12'd0}) ||
-                is_obj_in_circle(pos,    {4'd0, (X+W-R), (Y+H-R), 10'd0, 10'd0, (R), 12'd0})
-            ) ? 1 : 0;
+        reg [9:0] X,Y,W,H,R;
+        
+        begin
+            X = obj[XL: XR];
+            Y = obj[YL: YR];
+            W = obj[WIDTHL:WIDTHR];
+            H = obj[HEIGHTL:HEIGHTR];
+            R = obj[RADIUSL:RADIUSR];
+            if (32'd2 * R >= 32'd1 * W || 32'd2 * R >= 32'd1 * H)
+                is_obj_in_rounded_rectangle = 0;
+            else begin
+                is_obj_in_rounded_rectangle = (
+                    is_obj_in_rectangle(pos, {4'd0, (X+R), (Y), 
+                                        (W - 3'd2*R), (H), 10'd0, 12'd0}) ||
+                    is_obj_in_rectangle(pos, {4'd0, (X), (Y+R), 
+                                        (W), (H - 3'd2*R), 10'd0, 12'd0}) ||
+                    is_obj_in_circle(pos,    {4'd0, (X+R), (Y+R), 10'd0, 10'd0, (R), 12'd0}) ||
+                    is_obj_in_circle(pos,    {4'd0, (X+W-R), (Y+R), 10'd0, 10'd0, (R), 12'd0}) ||
+                    is_obj_in_circle(pos,    {4'd0, (X+R), (Y+H-R), 10'd0, 10'd0, (R), 12'd0}) ||
+                    is_obj_in_circle(pos,    {4'd0, (X+W-R), (Y+H-R), 10'd0, 10'd0, (R), 12'd0})
+                ) ? 1 : 0;
+            end
         end
-    end
     endfunction
 
 
     // 定义一个多维数组来存储对象
     wire [OBJ_WIDTH-1:0] obj_arr [0:MAX_LEN-1];
-    // wire [44-1:0] song_arr [0:4-1];
-    
-    // parameter [44-1:0] song1 = {9'd2, 3'd0, 32'd0};
-    // parameter 
-    //     SONG_LENL = 44-1,
-    //     SONG_LENR = 44-9,
-    //     SONG_INDEXL = SONG_LENR - 1,
-    //     SONG_INDEXR = SONG_LENR - 3,
-    //     SONG_XL = SONG_INDEXR - 1,
-    //     SONG_XR = SONG_INDEXR - 32;
-    // parameter [31:0] 
-    //         DISTANCE = 10,
-    //         SINGLE_WIDTH = 45,
-    //         SINGLE_HEIGHT = 40,
-    //         SONG_Y = 50,
-    //         SONG_X = 640;
-    // parameter [9:0]
-    //         SONG_Y10 = 50;
-    // wire [5-1:0] test_song [0:9-1];
-    // assign test_song[0] = 5'd1;
-    // assign test_song[1] = 5'd2;
-    // reg [44-1:0] song = song1;
-    // wire flag1;
+
     genvar i;
     generate
         for (i = 0; i < MAX_LEN; i = i + 1) begin : unpack
@@ -367,52 +333,6 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
         end
     endgenerate
 
-
-    // counter #(.NUM(25'd1_000_000)) div(.clk(clk), .rst(rst), .flag(flag1));
-    // always @(posedge flag1 or negedge rst) begin
-    //     if (!rst) begin
-    //         song <= song1;
-    //     end else if (song[SONG_XL:SONG_XR] >= 
-    //                 SONG_X + (DISTANCE + SINGLE_WIDTH) * song[SONG_LENL:SONG_LENR]) begin
-    //         song[SONG_XL:SONG_XR] <= 0;
-    //     end else begin
-    //         song[SONG_XL:SONG_XR] <= song[SONG_XL:SONG_XR] + 1;
-    //     end
-    // end
-
-    // function is_in_song;
-    //     input [31:0] posx, posy;
-    //     input [SONG_LENL:0] song;
-        
-    //     begin
-    //         is_in_song = is_in_square(posx+song[SONG_XL:SONG_XR], posy, 
-    //             {SONG_X, SONG_Y, (DISTANCE + SINGLE_WIDTH) * song[SONG_LENL:SONG_LENR], SINGLE_HEIGHT});
-    //     end
-    // endfunction
-
-    // function is_in_div;
-    //     input [31:0] posx, posy;
-    //     input [SONG_LENL:0] song;
-    //     begin
-    //         is_in_div = (((posx+song[SONG_XL:SONG_XR] - SONG_X) % (DISTANCE + SINGLE_WIDTH)) >= SINGLE_WIDTH); 
-    //     end
-    // endfunction
-
-    // function [9-1:0] get_single_index;
-    //     input [31:0] posx, posy;
-    //     input [SONG_LENL:0] song;
-
-    //     begin
-    //         get_single_index = ((posx+song[SONG_XL:SONG_XR] - SONG_X) / (DISTANCE + SINGLE_WIDTH));
-    //     end
-    // endfunction
-    // 
-    // wire [9-1:0] temp;
-    // wire [10-1:0] mod;
-    // wire [12-1:0] single_color;
-    // assign mod = ((pix_x+song[SONG_XL:SONG_XR] - SONG_X) % (DISTANCE + SINGLE_WIDTH));
-    // assign temp = get_single_index(pix_x, pix_y, song);
-    // assign single_color = (pix_x < 98 * 3 && pix_x >= 98 * 2) ? `GREEN : `WHITE;
     integer j;
     always@(posedge vga_clk or negedge rst) begin
         if(rst == 1'b0) begin
@@ -422,28 +342,6 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
             pix_data <= `BLACK;
         end else if (pix_y < 120) begin
             pix_data <= song_pix;
-            // if (is_in_song(pix_x, pix_y, song)) begin
-            //     // if (pix_x+song[SONG_XL:SONG_XR] - SONG_X >= (DISTANCE + SINGLE_WIDTH)) begin
-            //     //     pix_data <= `BLUE;
-            //     // end else begin
-            //     //     pix_data <= `GREEN;
-            //     // end
-            //     if (mod >= SINGLE_WIDTH) begin
-            //         pix_data <= `BLACK;
-            //     end else if (mod < 10'd16 + 10'd15 && pix_y < 10'd32 + SONG_Y10 + 10'd4 && 
-            //             mod >= 10'd15 && pix_y >= SONG_Y10 + 10'd4) begin
-            //         if ((ALPHA_TABLE[test_song[temp]] << ((mod - 10'd15) + (pix_y - SONG_Y10 - 10'd4) * 10'd16)) >> 511) begin
-            //             pix_data <= single_color;
-            //         end else begin
-            //             pix_data <= `BLACK;
-            //         end
-            //     end else begin
-            //         pix_data <= `BLACK;
-            //     end
-
-            // end else begin
-            //     pix_data <= `BLACK;
-            // end
         end else begin  : loop
             for (j = 0; j < MAX_LEN; j = j + 1) begin
                 if (obj_arr[j][ENUML:ENUMR] == `NONE_ENUM) begin
@@ -606,14 +504,6 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
         end
     endgenerate
 
-    // always @(negedge sw) begin
-    //     if (!rst) begin
-    //         obj_arr[1] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd100, 10'd100, 10'd100, `GREEN};
-    //         // add_obj({ 4'd0, 10'd100, 10'd100, 10'd100, 10'd100,10'd100, `GREEN});
-    //     end else
-    //         obj_arr[1] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd200, 10'd100, 10'd10, `WHITE};
-    //         // add_obj({ 4'd0, 10'd200, 10'd200, 10'd100, 10'd100,10'd100, `WHITE});
-    // end
     function [9:0] add10;
         input [9:0] a, b;
         add10 = a + b;
@@ -637,6 +527,31 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
         end
     endtask
 endmodule
+
+`define NONE_SIN 5'd31
+`define _DO1 5'd0
+`define _RE2 5'd1
+`define _MI3 5'd2
+`define _FA4 5'd3
+`define _SO5 5'd4
+`define _LA6 5'd5
+`define _XI7 5'd6
+
+`define DO1 5'd7
+`define RE2 5'd8
+`define MI3 5'd9
+`define FA4 5'd10
+`define SO5 5'd11
+`define LA6 5'd12
+`define XI7 5'd13
+
+`define DO_1 5'd14
+`define RE_2 5'd15
+`define MI_3 5'd16
+`define FA_4 5'd17
+`define SO_5 5'd18
+`define LA_6 5'd19
+`define XI_7 5'd20
 
 module audio_and_vga (
     input clk,          //100MHZ
@@ -761,7 +676,7 @@ module song_change(
         end
     endfunction
 
-    parameter [44-1:0] song1 = {9'd2, 3'd0, 32'd0};
+    parameter [44-1:0] song1 = {9'd4, 3'd0, 32'd0};
     parameter 
         SONG_LENL = 44-1,
         SONG_LENR = 44-9,
@@ -770,16 +685,27 @@ module song_change(
         SONG_XL = SONG_INDEXR - 1,
         SONG_XR = SONG_INDEXR - 32;
     parameter [31:0] 
-            DISTANCE = 10,
-            SINGLE_WIDTH = 45,
+            DISTANCE = 2,
+            SINGLE_WIDTH = 16,
             SINGLE_HEIGHT = 40,
             SONG_Y = 50,
             SONG_X = 640;
     parameter [9:0]
             SONG_Y10 = 50;
-    wire [5-1:0] test_song [0:9-1];
-    assign test_song[0] = 5'd1;
-    assign test_song[1] = 5'd2;
+
+    wire [0:5*128-1] test_song_arr = {`SO5, `NONE_SIN, `MI3, `NONE_SIN, 620'd0};
+    wire [5-1:0] test_song [0:128-1];
+    // assign test_song[0] = 5'd1;
+    // assign test_song[1] = 5'd2;
+    
+    genvar i;
+    generate
+        for (i = 0; i < 128; i = i + 1) begin
+            // assign obj_arr_packed[(i+1)*OBJ_WIDTH-1: OBJ_WIDTH * i] = obj_arr[i];
+            assign test_song[i] = test_song_arr[5*i:(i+1)*5-1];
+        end
+    endgenerate
+
     reg [44-1:0] song = song1;
     wire flag1;
 
@@ -834,10 +760,12 @@ module song_change(
     assign song_pix = 
         (!is_in_song(pix_x, pix_y, song)) ? `BLACK : (
             (mod >= SINGLE_WIDTH) ? `BLACK : (
-                (mod < 10'd16 + 10'd15 && pix_y < 10'd32 + SONG_Y10 + 10'd4 && mod >= 10'd15 && pix_y >= SONG_Y10 + 10'd4) ? (
-                    ((ALPHA_TABLE[test_song[temp]] << ((mod - 10'd15) + (pix_y - SONG_Y10 - 10'd4) * 10'd16)) >> 511) ?
+                // (mod < 10'd16 + 10'd15 && pix_y < 10'd32 + SONG_Y10 + 10'd4 && mod >= 10'd15 && pix_y >= SONG_Y10 + 10'd4) ? (
+                (test_song[temp] == `NONE_SIN) ? `BLACK : (
+                    ((ALPHA_TABLE[test_song[temp]] << ((mod) + (pix_y - SONG_Y10) * 10'd16)) >> 511) ?
                         single_color : `BLACK
-                ) : `BLACK
+                )
+                // ) : `BLACK
             )
         );
 endmodule
