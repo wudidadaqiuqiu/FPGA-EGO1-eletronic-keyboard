@@ -72,7 +72,7 @@ wire butf;
 wire [5:0] obj_arr_len;
 fliter u1(.clk(clk), .rst(rst), .data(but), .df(butf));
 
-basic_graph #(.OBJ_WIDTH(OBJ_WIDTH), .MAX_LEN(MAX_LEN)) graph(.vga_clk(vga_clk), .rst(rst), .pix_x(pix_x), .pix_y(pix_y), 
+basic_graph #(.OBJ_WIDTH(OBJ_WIDTH), .MAX_LEN(MAX_LEN)) graph(.vga_clk(vga_clk), .clk(clk), .rst(rst), .pix_x(pix_x), .pix_y(pix_y), 
                     .obj_arr_packed(obj_arr_packed), 
                     .obj_arr_len(obj_arr_len), .pix_data(pix_data));
 painter #(.OBJ_WIDTH(OBJ_WIDTH), .MAX_LEN(MAX_LEN)) u2(
@@ -166,8 +166,10 @@ endmodule
 `define CIRCLE_ENUM 4'd2
 `define ROUNDRECT_ENUM 4'd3
 
+
 module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN_BITS = 6)(
     input wire vga_clk,
+    input wire clk,
     input wire rst,
     input wire [9:0] pix_x,
     input wire [9:0] pix_y,
@@ -287,7 +289,7 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
         tempy = (pos[POSYL:POSYR] > obj[YL:YR]) ? (pos[POSYL:POSYR] - obj[YL:YR]) : (obj[YL:YR] - pos[POSYL:POSYR]);
         dis_sq = tempx * tempx + tempy * tempy;
         // r_2 = ;
-        is_obj_in_circle = (dis_sq < obj[RADIUSL:RADIUSR] * obj[RADIUSL:RADIUSR] * 32'd1);
+        is_obj_in_circle = (dis_sq < obj[RADIUSL:RADIUSR] * obj[RADIUSL:RADIUSR] * 20'd1);
     end
     endfunction
 
@@ -365,6 +367,8 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
             SINGLE_HEIGHT = 40,
             SONG_Y = 50,
             SONG_X = 640;
+    parameter [9:0]
+            SONG_Y10 = 50;
     wire [5-1:0] test_song [0:9-1];
     assign test_song[0] = 5'd1;
     assign test_song[1] = 5'd2;
@@ -379,7 +383,7 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
     endgenerate
 
 
-    counter #(.NUM(25'd25_000_0)) div(.clk(vga_clk), .rst(rst), .flag(flag1));
+    counter #(.NUM(25'd1_000_000)) div(.clk(clk), .rst(rst), .flag(flag1));
     always @(posedge flag1 or negedge rst) begin
         if (!rst) begin
             song <= song1;
@@ -400,7 +404,30 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
                 {SONG_X, SONG_Y, (DISTANCE + SINGLE_WIDTH) * song[SONG_LENL:SONG_LENR], SINGLE_HEIGHT});
         end
     endfunction
+
+    function is_in_div;
+        input [31:0] posx, posy;
+        input [SONG_LENL:0] song;
+        begin
+            is_in_div = (((posx+song[SONG_XL:SONG_XR] - SONG_X) % (DISTANCE + SINGLE_WIDTH)) >= SINGLE_WIDTH); 
+        end
+    endfunction
+
+    function [9-1:0] get_single_index;
+        input [31:0] posx, posy;
+        input [SONG_LENL:0] song;
+
+        begin
+            get_single_index = ((posx+song[SONG_XL:SONG_XR] - SONG_X) / (DISTANCE + SINGLE_WIDTH));
+        end
+    endfunction
     integer j;
+    wire [9-1:0] temp;
+    wire [10-1:0] mod;
+    wire [12-1:0] single_color;
+    assign mod = ((pix_x+song[SONG_XL:SONG_XR] - SONG_X) % (DISTANCE + SINGLE_WIDTH));
+    assign temp = get_single_index(pix_x, pix_y, song);
+    assign single_color = (pix_x < 98 * 3 && pix_x >= 98 * 2) ? `GREEN : `WHITE;
     always@(posedge vga_clk or negedge rst) begin
         if(rst == 1'b0) begin
             pix_data <= `BLACK;
@@ -409,7 +436,24 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
             pix_data <= `BLACK;
         end else if (pix_y < 120) begin
             if (is_in_song(pix_x, pix_y, song)) begin
-                pix_data <= `GREEN;
+                // if (pix_x+song[SONG_XL:SONG_XR] - SONG_X >= (DISTANCE + SINGLE_WIDTH)) begin
+                //     pix_data <= `BLUE;
+                // end else begin
+                //     pix_data <= `GREEN;
+                // end
+                if (mod >= SINGLE_WIDTH) begin
+                    pix_data <= `BLACK;
+                end else if (mod < 10'd16 + 10'd15 && pix_y < 10'd32 + SONG_Y10 + 10'd4 && 
+                        mod >= 10'd15 && pix_y >= SONG_Y10 + 10'd4) begin
+                    if ((ALPHA_TABLE[test_song[temp]] << ((mod - 10'd15) + (pix_y - SONG_Y10 - 10'd4) * 10'd16)) >> 511) begin
+                        pix_data <= single_color;
+                    end else begin
+                        pix_data <= `BLACK;
+                    end
+                end else begin
+                    pix_data <= `BLACK;
+                end
+
             end else begin
                 pix_data <= `BLACK;
             end
@@ -675,3 +719,144 @@ module audio_and_vga (
         .updated_table(updated_table)
     );
 endmodule
+
+module song_change(
+    input wire clk,
+    input wire rst,
+    input wire [10-1:0] pix_x,
+    input wire [10-1:0] pix_y,
+    output wire [44-1:0] song_,
+    output wire [12-1:0] song_pix
+);
+
+    parameter [511:0]   AZIMO = 512'h00000000000000000000070007000F000F800D800D80198019C018C01FC030E030E0306060606070F8F800000000000000000000000000000000000000000000,
+                    BZIMO = 512'h000000000000000000007F8039E038E038E038E038E039C03F8038E03860387038703870387038E07FC000000000000000000000000000000000000000000000,
+                    CZIMO = 512'h0000000000000000000007E01CE03870383030307000700070007000700070007030383038601CE00F8000000000000000000000000000000000000000000000,
+                    DZIMO = 512'h00000000000000000000FF0039C038E038E03870387038703870387038703870387038E038E039C0FF0000000000000000000000000000000000000000000000,
+                    EZIMO = 512'h00000000000000000000FFE070E0703070307000718071807F807180718071807000703070307060FFE000000000000000000000000000000000000000000000,
+                    FZIMO = 512'h00000000000000000000FFE070E0703070307000718071807F807180718071807000700070007000FC0000000000000000000000000000000000000000000000,
+                    GZIMO = 512'h000000000000000000000F801CC0386038603060700070007000700073F870E070E038E038E01CE00F8000000000000000000000000000000000000000000000,
+                    HZIMO = 512'h00000000000000000000F8F87070707070707070707070707FF07070707070707070707070707070F8F800000000000000000000000000000000000000000000,
+                    IZIMO = 512'h000000000000000000003FE0070007000700070007000700070007000700070007000700070007003FE000000000000000000000000000000000000000000000,
+                    JZIMO = 512'h000000000000000000001FF0038003800380038003800380038003800380038003800380038003800380738077003E0000000000000000000000000000000000,
+                    KZIMO = 512'h00000000000000000000FBE071C07380730076007C007E007E007F0073007380718071C070C070E0F9F000000000000000000000000000000000000000000000,
+                    LZIMO = 512'h00000000000000000000FC0070007000700070007000700070007000700070007000703070307060FFE000000000000000000000000000000000000000000000,
+                    MZIMO = 512'h00000000000000000000F0F071E071E079E079E07BE07BE07BE07FE07FE07EE06EE06EE06EE06CE0F1F000000000000000000000000000000000000000000000,
+                    NZIMO = 512'h0000000000000000000079F838603C603C603E603E6037603760336033E031E031E031E030E030E0FC6000000000000000000000000000000000000000000000,
+                    OZIMO = 512'h000000000000000000000F801DC038E0386070707070707070707070707070707070386038E01DC00F8000000000000000000000000000000000000000000000,
+                    PZIMO = 512'h00000000000000000000FF8070E07070707070707070707071E07F80700070007000700070007000FC0000000000000000000000000000000000000000000000,
+                    QZIMO = 512'h000000000000000000000F801DC038E0386070707070707070707070707070707F703B603BE01DC00F8001F000E0000000000000000000000000000000000000,
+                    RZIMO = 512'h00000000000000000000FFC070E0707070707070707070E07F8073007380718071C070E070E07070F87800000000000000000000000000000000000000000000,
+                    SZIMO = 512'h000000000000000000001FE038E070607060700078003E001F8007E001E000F060706070707038E00FC000000000000000000000000000000000000000000000,
+                    TZIMO = 512'h000000000000000000007FF06730C718C718070007000700070007000700070007000700070007001FC000000000000000000000000000000000000000000000,
+                    UZIMO = 512'h000000000000000000007CF038603860386038603860386038603860386038603860386038601CC00F8000000000000000000000000000000000000000000000,
+                    VZIMO = 512'h00000000000000000000F8F0706030C030C038C038C0198019801D801D800F000F000F000E000600060000000000000000000000000000000000000000000000,
+                    WZIMO = 512'h00000000000000000000FFF867306330733073303760376037E037E03DE03DC01DC01DC019C01980198000000000000000000000000000000000000000000000,
+                    XZIMO = 512'h000000000000000000007DF038C018C01CC00D800F8007000600070007000F800D8019C018C030E079F000000000000000000000000000000000000000000000,
+                    YZIMO = 512'h00000000000000000000F8F870303060386018C01CC01F800F800F000700070007000700070007001FC000000000000000000000000000000000000000000000,
+                    ZZIMO = 512'h000000000000000000003FF0386070E060C001C0018003000300060006000C001C001830383030607FE000000000000000000000000000000000000000000000;
+
+    wire [511:0] ALPHA_TABLE [0:21-1];
+    assign ALPHA_TABLE[0] = QZIMO;
+    assign ALPHA_TABLE[1] = WZIMO;
+    assign ALPHA_TABLE[2] = EZIMO;
+    assign ALPHA_TABLE[3] = RZIMO;
+    assign ALPHA_TABLE[4] = TZIMO;
+    assign ALPHA_TABLE[5] = YZIMO;
+    assign ALPHA_TABLE[6] = UZIMO;
+    assign ALPHA_TABLE[7] = AZIMO;
+    assign ALPHA_TABLE[8] = SZIMO;
+    assign ALPHA_TABLE[9] = DZIMO;
+    assign ALPHA_TABLE[10] = FZIMO;
+    assign ALPHA_TABLE[11] = GZIMO;
+    assign ALPHA_TABLE[12] = HZIMO;
+    assign ALPHA_TABLE[13] = JZIMO;
+    assign ALPHA_TABLE[14] = ZZIMO;
+    assign ALPHA_TABLE[15] = XZIMO;
+    assign ALPHA_TABLE[16] = CZIMO;
+    assign ALPHA_TABLE[17] = VZIMO;
+    assign ALPHA_TABLE[18] = BZIMO;
+    assign ALPHA_TABLE[19] = NZIMO;
+    assign ALPHA_TABLE[20] = MZIMO;
+
+    parameter [44-1:0] song1 = {9'd2, 3'd0, 32'd0};
+    parameter 
+        SONG_LENL = 44-1,
+        SONG_LENR = 44-9,
+        SONG_INDEXL = SONG_LENR - 1,
+        SONG_INDEXR = SONG_LENR - 3,
+        SONG_XL = SONG_INDEXR - 1,
+        SONG_XR = SONG_INDEXR - 32;
+    parameter [31:0] 
+            DISTANCE = 10,
+            SINGLE_WIDTH = 45,
+            SINGLE_HEIGHT = 40,
+            SONG_Y = 50,
+            SONG_X = 640;
+    parameter [9:0]
+            SONG_Y10 = 50;
+    wire [5-1:0] test_song [0:9-1];
+    assign test_song[0] = 5'd1;
+    assign test_song[1] = 5'd2;
+    reg [44-1:0] song = song1;
+    wire flag1;
+
+    assign song_ = song;
+    counter #(.NUM(25'd1_000_000)) div(.clk(clk), .rst(rst), .flag(flag1));
+    always @(posedge flag1 or negedge rst) begin
+        if (!rst) begin
+            song <= song1;
+        end else if (song[SONG_XL:SONG_XR] >= 
+                    SONG_X + (DISTANCE + SINGLE_WIDTH) * song[SONG_LENL:SONG_LENR]) begin
+            song[SONG_XL:SONG_XR] <= 0;
+        end else begin
+            song[SONG_XL:SONG_XR] <= song[SONG_XL:SONG_XR] + 1;
+        end
+    end
+
+    
+    function is_in_song;
+        input [31:0] posx, posy;
+        input [SONG_LENL:0] song;
+        
+        begin
+            is_in_song = is_in_square(posx+song[SONG_XL:SONG_XR], posy, 
+                {SONG_X, SONG_Y, (DISTANCE + SINGLE_WIDTH) * song[SONG_LENL:SONG_LENR], SINGLE_HEIGHT});
+        end
+    endfunction
+
+    function is_in_div;
+        input [31:0] posx, posy;
+        input [SONG_LENL:0] song;
+        begin
+            is_in_div = (((posx+song[SONG_XL:SONG_XR] - SONG_X) % (DISTANCE + SINGLE_WIDTH)) >= SINGLE_WIDTH); 
+        end
+    endfunction
+
+    function [9-1:0] get_single_index;
+        input [31:0] posx, posy;
+        input [SONG_LENL:0] song;
+
+        begin
+            get_single_index = ((posx+song[SONG_XL:SONG_XR] - SONG_X) / (DISTANCE + SINGLE_WIDTH));
+        end
+    endfunction
+
+    wire [9-1:0] temp;
+    wire [10-1:0] mod;
+    wire [12-1:0] single_color;
+    assign mod = ((pix_x+song[SONG_XL:SONG_XR] - SONG_X) % (DISTANCE + SINGLE_WIDTH));
+    assign temp = get_single_index(pix_x, pix_y, song);
+    assign single_color = (pix_x < 98 * 3 && pix_x >= 98 * 2) ? `GREEN : `WHITE;
+
+    assign song_pix = 
+        (!is_in_song(pix_x, pix_y, song)) ? `BLACK : (
+            (mod >= SINGLE_WIDTH) ? `BLACK : (
+                (mod < 10'd16 + 10'd15 && pix_y < 10'd32 + SONG_Y10 + 10'd4 && mod >= 10'd15 && pix_y >= SONG_Y10 + 10'd4) ? (
+                    ((ALPHA_TABLE[test_song[temp]] << ((mod - 10'd15) + (pix_y - SONG_Y10 - 10'd4) * 10'd16)) >> 511) ?
+                        single_color : `BLACK
+                ) : `BLACK
+            )
+        );
+endmodule
+
