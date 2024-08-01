@@ -171,6 +171,18 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
     input wire [LEN_BITS-1:0] obj_arr_len,
     output reg [11:0] pix_data //输出像素点色彩信息
 );
+    reg [19:0]      rom_addr;
+    reg rom_ena = 1'b1;
+    wire [11:0]      douta;
+
+    rom u1 (
+        .clka(vga_clk),    // input wire clka
+        .ena(rom_ena),      // input wire ena
+        .addra(rom_addr),  // input wire [19 : 0] addra
+        .douta(douta)  // output wire [11 : 0] douta
+    );
+
+
     parameter 
             ENUML = 65,
             ENUMR = 65 - 4 + 1,
@@ -286,18 +298,20 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
                     disable loop;
                 end else if (obj_arr[j][ENUML:ENUMR] == `ROUNDRECT_ENUM) begin
                     if (is_obj_in_rectangle({pix_x, pix_y}, obj_arr[j])) begin
-                            pix_data <= obj_arr[j][COLORL:COLORR];
-                            // if (((pix_x) < 10'd16 + obj_arr[j][XL:XR]) && ((pix_y) < 10'd32 + obj_arr[j][YL:YR])) begin
-                            //     if ((AZIMO << ((pix_x - obj_arr[j][XL:XR]) + (pix_y - obj_arr[j][YL:YR]) * 10'd16)) >> 511) begin
-                            //         pix_data <= obj_arr[j][COLORL:COLORR];
-                            //     end else begin
-                            //         pix_data <= `BLACK;
-                            //     end
-                            //     // pix_data <= obj_arr[j][COLORL:COLORR];
-                            // end else begin
-                            //     pix_data <= `BLACK;
-                            //     // pix_data <= obj_arr[j][COLORL:COLORR];
-                            // end
+                            // pix_data <= obj_arr[j][COLORL:COLORR];
+                            
+                            if (((pix_x) < 10'd16 + obj_arr[j][XL:XR]) && ((pix_y) < 10'd32 + obj_arr[j][YL:YR])) begin
+                                if ((AZIMO << ((pix_x - obj_arr[j][XL:XR]) + (pix_y - obj_arr[j][YL:YR]) * 10'd16)) >> 511) begin
+                                    pix_data <= `BLACK;
+                                end else begin
+                                    // pix_data <= `BLACK;
+                                    pix_data <= obj_arr[j][COLORL:COLORR];
+                                end
+                                // pix_data <= obj_arr[j][COLORL:COLORR];
+                            end else begin
+                                // pix_data <= `BLACK;
+                                pix_data <= obj_arr[j][COLORL:COLORR];
+                            end
                             disable loop;
                     end
                 end else begin
