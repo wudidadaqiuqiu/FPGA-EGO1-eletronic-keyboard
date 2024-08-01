@@ -528,14 +528,14 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
     endtask
 endmodule
 
-`define NONE_SIN 5'd31
-`define _DO1 5'd0
-`define _RE2 5'd1
-`define _MI3 5'd2
-`define _FA4 5'd3
-`define _SO5 5'd4
-`define _LA6 5'd5
-`define _XI7 5'd6
+`define __ 5'd31
+`define DO_1 5'd0
+`define RE_2 5'd1
+`define MI_3 5'd2
+`define FA_4 5'd3
+`define SO_5 5'd4
+`define LA_6 5'd5
+`define XI_7 5'd6
 
 `define DO1 5'd7
 `define RE2 5'd8
@@ -545,13 +545,13 @@ endmodule
 `define LA6 5'd12
 `define XI7 5'd13
 
-`define DO_1 5'd14
-`define RE_2 5'd15
-`define MI_3 5'd16
-`define FA_4 5'd17
-`define SO_5 5'd18
-`define LA_6 5'd19
-`define XI_7 5'd20
+`define _DO1 5'd14
+`define _RE2 5'd15
+`define _MI3 5'd16
+`define _FA4 5'd17
+`define _SO5 5'd18
+`define _LA6 5'd19
+`define _XI7 5'd20
 
 module audio_and_vga (
     input clk,          //100MHZ
@@ -676,7 +676,7 @@ module song_change(
         end
     endfunction
 
-    parameter [44-1:0] song1 = {9'd4, 3'd0, 32'd0};
+    parameter [44-1:0] song1 = {9'd128, 3'd0, 32'd0};
     parameter 
         SONG_LENL = 44-1,
         SONG_LENR = 44-9,
@@ -693,7 +693,16 @@ module song_change(
     parameter [9:0]
             SONG_Y10 = 50;
 
-    wire [0:5*128-1] test_song_arr = {`SO5, `NONE_SIN, `MI3, `NONE_SIN, 620'd0};
+    wire [0:5*128-1] test_song_arr = {
+        `SO5,`__,`MI3,`__,    `MI3,`__,`__,`__,    `SO5,`__,`RE2,`__,  `RE2,`__,`__,`__,
+        `MI3,`__,`RE2,`__,    `RE2,`__,`DO1,`__,   `DO1,`__,`__,`__,   `__,`__,`__,`__,
+        `DO1,`__,`XI_7,`__,   `LA_6,`__,`XI_7,`__, `DO1,`__,`XI_7,`__, `DO1,`__,`DO1,`__,   
+        `RE2,`__,`MI3,`__,    `MI3,`__,`__,`__,    `__,`__,`__,`__,    `__,`__,`__,`__,
+        `__,`__,`__,`__,      `SO5,`__,`MI3,`__,   `MI3,`__,`__,`__,   `SO5,`__,`RE2,`__,
+        `RE2,`__,`__,`__,     `MI3,`__,`RE2,`__,   `RE2,`__,`DO1,`__,  `DO1,`__,`__,`__,
+        `__,`__,`__,`__,      `DO1,`__,`XI_7,`__,  `LA_6,`__,`XI_7,`__, `DO1,`__,`XI_7,`__,
+        `XI_7,`__,`DO1,`__,   `DO1,`__,`RE2,`__,   `DO1,`__,`__,`__,   `__,`__,`__,`__
+    };
     wire [5-1:0] test_song [0:128-1];
     // assign test_song[0] = 5'd1;
     // assign test_song[1] = 5'd2;
@@ -761,7 +770,7 @@ module song_change(
         (!is_in_song(pix_x, pix_y, song)) ? `BLACK : (
             (mod >= SINGLE_WIDTH) ? `BLACK : (
                 // (mod < 10'd16 + 10'd15 && pix_y < 10'd32 + SONG_Y10 + 10'd4 && mod >= 10'd15 && pix_y >= SONG_Y10 + 10'd4) ? (
-                (test_song[temp] == `NONE_SIN) ? `BLACK : (
+                (test_song[temp] == `__) ? `BLACK : (
                     ((ALPHA_TABLE[test_song[temp]] << ((mod) + (pix_y - SONG_Y10) * 10'd16)) >> 511) ?
                         single_color : `BLACK
                 )
