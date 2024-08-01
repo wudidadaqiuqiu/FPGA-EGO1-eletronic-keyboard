@@ -175,16 +175,16 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
     input wire [LEN_BITS-1:0] obj_arr_len,
     output reg [11:0] pix_data //输出像素点色彩信息
     );
-    reg [16:0]      rom_addr;
-    reg rom_ena = 1'b1;
-    wire [11:0]      douta;
+    // reg [16:0]      rom_addr;
+    // reg rom_ena = 1'b1;
+    // wire [11:0]      douta;
 
-    rom u1 (
-        .clka(vga_clk),    // input wire clka
-        .ena(rom_ena),      // input wire ena
-        .addra(rom_addr),  // input wire [19 : 0] addra
-        .douta(douta)  // output wire [11 : 0] douta
-    );
+    // rom u1 (
+    //     .clka(vga_clk),    // input wire clka
+    //     .ena(rom_ena),      // input wire ena
+    //     .addra(rom_addr),  // input wire [19 : 0] addra
+    //     .douta(douta)  // output wire [11 : 0] douta
+    // );
 
 
     parameter 
@@ -237,29 +237,27 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
                         ZZIMO = 512'h000000000000000000003FF0386070E060C001C0018003000300060006000C001C001830383030607FE000000000000000000000000000000000000000000000;
 
     wire [511:0] ALPHA_TABLE [0:21-1];
-    // initial begin
-        assign ALPHA_TABLE[0] = QZIMO;
-        assign ALPHA_TABLE[1] = WZIMO;
-        assign ALPHA_TABLE[2] = EZIMO;
-        assign ALPHA_TABLE[3] = RZIMO;
-        assign ALPHA_TABLE[4] = TZIMO;
-        assign ALPHA_TABLE[5] = YZIMO;
-        assign ALPHA_TABLE[6] = UZIMO;
-        assign ALPHA_TABLE[7] = AZIMO;
-        assign ALPHA_TABLE[8] = SZIMO;
-        assign ALPHA_TABLE[9] = DZIMO;
-        assign ALPHA_TABLE[10] = FZIMO;
-        assign ALPHA_TABLE[11] = GZIMO;
-        assign ALPHA_TABLE[12] = HZIMO;
-        assign ALPHA_TABLE[13] = JZIMO;
-        assign ALPHA_TABLE[14] = ZZIMO;
-        assign ALPHA_TABLE[15] = XZIMO;
-        assign ALPHA_TABLE[16] = CZIMO;
-        assign ALPHA_TABLE[17] = VZIMO;
-        assign ALPHA_TABLE[18] = BZIMO;
-        assign ALPHA_TABLE[19] = NZIMO;
-        assign ALPHA_TABLE[20] = MZIMO;
-    // end
+    assign ALPHA_TABLE[0] = QZIMO;
+    assign ALPHA_TABLE[1] = WZIMO;
+    assign ALPHA_TABLE[2] = EZIMO;
+    assign ALPHA_TABLE[3] = RZIMO;
+    assign ALPHA_TABLE[4] = TZIMO;
+    assign ALPHA_TABLE[5] = YZIMO;
+    assign ALPHA_TABLE[6] = UZIMO;
+    assign ALPHA_TABLE[7] = AZIMO;
+    assign ALPHA_TABLE[8] = SZIMO;
+    assign ALPHA_TABLE[9] = DZIMO;
+    assign ALPHA_TABLE[10] = FZIMO;
+    assign ALPHA_TABLE[11] = GZIMO;
+    assign ALPHA_TABLE[12] = HZIMO;
+    assign ALPHA_TABLE[13] = JZIMO;
+    assign ALPHA_TABLE[14] = ZZIMO;
+    assign ALPHA_TABLE[15] = XZIMO;
+    assign ALPHA_TABLE[16] = CZIMO;
+    assign ALPHA_TABLE[17] = VZIMO;
+    assign ALPHA_TABLE[18] = BZIMO;
+    assign ALPHA_TABLE[19] = NZIMO;
+    assign ALPHA_TABLE[20] = MZIMO;
 
     function is_in_screen;
     input [19:0] pos;
@@ -327,9 +325,51 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
         end
     end
     endfunction
+
+    parameter 
+        SQUARE_XL = 32*4 -1,
+        SQUARE_XR = 32*3,
+        SQUARE_YL = 32*3 -1,
+        SQUARE_YR = 32*2,
+        SQUARE_WL = 32*2 -1,
+        SQUARE_WR = 32,
+        SQUARE_HL = 32 -1,
+        SQUARE_HR = 0;
+    function is_in_square;
+        input [31:0] pos_x;
+        input [31:0] pos_y;
+        input [32*4 - 1:0] square;
+
+        begin
+            is_in_square = (pos_x >= square[SQUARE_XL:SQUARE_XR] && 
+                pos_x < square[SQUARE_XL:SQUARE_XR] + square[SQUARE_WL:SQUARE_WR] &&
+                pos_y >= square[SQUARE_YL:SQUARE_YR] && 
+                pos_y < square[SQUARE_YL:SQUARE_YR] + square[SQUARE_HL:SQUARE_HR]) ? 1 : 0;
+        end
+    endfunction
     // 定义一个多维数组来存储对象
     wire [OBJ_WIDTH-1:0] obj_arr [0:MAX_LEN-1];
+    wire [44-1:0] song_arr [0:4-1];
     
+    parameter [44-1:0] song1 = {9'd2, 3'd0, 32'd0};
+    parameter 
+        SONG_LENL = 44-1,
+        SONG_LENR = 44-9,
+        SONG_INDEXL = SONG_LENR - 1,
+        SONG_INDEXR = SONG_LENR - 3,
+        SONG_XL = SONG_INDEXR - 1,
+        SONG_XR = SONG_INDEXR - 32;
+    parameter [31:0] 
+            DISTANCE = 10,
+            SINGLE_WIDTH = 45,
+            SINGLE_HEIGHT = 40,
+            SONG_Y = 50,
+            SONG_X = 640;
+    wire [5-1:0] test_song [0:9-1];
+    assign test_song[0] = 5'd1;
+    assign test_song[1] = 5'd2;
+    reg [44-1:0] song = song1;
+    wire flag1;
     genvar i;
     generate
         for (i = 0; i < MAX_LEN; i = i + 1) begin : unpack
@@ -337,16 +377,29 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
             assign obj_arr[i] = obj_arr_packed[(i+1)*OBJ_WIDTH-1: OBJ_WIDTH * i];
         end
     endgenerate
-    
-    // wire            logo_area;  
-    // reg [9:0] logo_x = 10'd0, logo_y = 10'd0;
-    // parameter [9:0] logo_width = 10'd45;
-    // parameter [9:0] logo_height = 10'd40;
-
-    // assign logo_area = ((pix_y >= logo_y) & (pix_y < logo_y + logo_height) & 
-    //                     (pix_x >= logo_x) & (pix_x < logo_x + logo_width)) ? 1'b1 : 1'b0;
 
 
+    counter #(.NUM(25'd25_000_0)) div(.clk(vga_clk), .rst(rst), .flag(flag1));
+    always @(posedge flag1 or negedge rst) begin
+        if (!rst) begin
+            song <= song1;
+        end else if (song[SONG_XL:SONG_XR] >= 
+                    SONG_X + (DISTANCE + SINGLE_WIDTH) * song[SONG_LENL:SONG_LENR]) begin
+            song[SONG_XL:SONG_XR] <= 0;
+        end else begin
+            song[SONG_XL:SONG_XR] <= song[SONG_XL:SONG_XR] + 1;
+        end
+    end
+
+    function is_in_song;
+        input [31:0] posx, posy;
+        input [SONG_LENL:0] song;
+        
+        begin
+            is_in_song = is_in_square(posx+song[SONG_XL:SONG_XR], posy, 
+                {SONG_X, SONG_Y, (DISTANCE + SINGLE_WIDTH) * song[SONG_LENL:SONG_LENR], SINGLE_HEIGHT});
+        end
+    endfunction
     integer j;
     always@(posedge vga_clk or negedge rst) begin
         if(rst == 1'b0) begin
@@ -354,17 +407,12 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
             // rom_addr <= 16'd0;
         end else if (!is_in_screen({pix_x, pix_y})) begin
             pix_data <= `BLACK;
-            // rom_addr <= 16'd0;
-        // end else if (pix_x <= 10'd60 && pix_y <= 60) begin
-        //     if (logo_area == 1'b1) begin
-        //        rom_addr <= rom_addr + 16'd1;
-        //        pix_data <= douta;
-        //     end else if (pix_x >= logo_x + logo_width && pix_y >= logo_y + logo_height) begin
-        //         rom_addr <= 20'd0;
-        //     end else begin
-        //        rom_addr <= rom_addr;
-        //        pix_data <= `BLACK;
-        //     end
+        end else if (pix_y < 120) begin
+            if (is_in_song(pix_x, pix_y, song)) begin
+                pix_data <= `GREEN;
+            end else begin
+                pix_data <= `BLACK;
+            end
         end else begin  : loop
             for (j = 0; j < MAX_LEN; j = j + 1) begin
                 if (obj_arr[j][ENUML:ENUMR] == `NONE_ENUM) begin
@@ -398,37 +446,6 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
                     pix_data <= `BLACK;
                     disable loop;
                 end
-                // if (obj_arr[j][ENUML:ENUMR] == RECTANGLE_ENUM && is_obj_in_rectangle(
-                //     {pix_x, pix_y}, obj[j]))
-                
-                // case (obj_arr[j][ENUML:ENUMR])
-                    // `NONE_ENUM : begin
-                    //     pix_data <= `BLACK;
-                    //     disable loop;
-                    // end 
-                    // `RECTANGLE_ENUM : begin
-                    //     if (is_obj_in_rectangle({pix_x, pix_y}, obj_arr[j])) begin
-                    //         pix_data <= obj_arr[j][COLORL:COLORR];
-                    //         disable loop;
-                    //     end
-                    // end
-                    // `CIRCLE_ENUM : begin
-                    //     if (is_obj_in_circle({pix_x, pix_y}, obj_arr[j])) begin
-                    //         pix_data <= obj_arr[j][COLORL:COLORR];
-                    //         disable loop;
-                    //     end
-                    // end
-                //     `ROUNDRECT_ENUM : begin
-                //         if (is_obj_in_rounded_rectangle({pix_x, pix_y}, obj_arr[j])) begin
-                //             pix_data <= obj_arr[j][COLORL:COLORR];
-                //             disable loop;
-                //         end
-                //     end
-                //     default: begin
-                //         pix_data <= `BLACK;
-                //         disable loop;
-                //     end
-                // endcase
             end
         end
     end
@@ -577,38 +594,6 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
             int_to_10 = i[9:0];
         end
     endfunction
-    // integer j;
-    // always@(posedge clk or negedge rst) begin
-    //     if(rst == 1'b0) begin
-    //         obj_arr[0] <= Q_OBJ;
-    //         obj_arr[1] <= W_OBJ;
-    //         obj_arr[2] <= E_OBJ;
-    //         obj_arr[3] <= R_OBJ;
-    //         obj_arr[4] <= T_OBJ;
-    //         obj_arr[5] <= Y_OBJ;
-    //         obj_arr[6] <= U_OBJ;
-
-    //         obj_arr[7] = A_OBJ;
-    //         obj_arr[8] = S_OBJ;
-    //         obj_arr[9] = D_OBJ;
-    //         obj_arr[10] = F_OBJ;
-    //         obj_arr[11] = G_OBJ;
-    //         obj_arr[12] = H_OBJ;
-    //         obj_arr[13] = J_OBJ;
-
-    //         obj_arr[14] = Z_OBJ;
-    //         obj_arr[15] = X_OBJ;
-    //         obj_arr[16] = C_OBJ;
-    //         obj_arr[17] = V_OBJ;
-    //         obj_arr[18] = B_OBJ;
-    //         obj_arr[19] = N_OBJ;
-    //         obj_arr[20] = M_OBJ;
-    //         obj_arr[21] = NONE;
-    //     end else begin
-    //         // 
-    //         // add_obj(obj_reg);
-    //     end
-    // end
 
     task add_obj;
         input [OBJ_WIDTH-1:0] obj;
