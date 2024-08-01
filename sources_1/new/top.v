@@ -171,7 +171,7 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
     input wire [LEN_BITS-1:0] obj_arr_len,
     output reg [11:0] pix_data //输出像素点色彩信息
 );
-    reg [19:0]      rom_addr;
+    reg [16:0]      rom_addr;
     reg rom_ena = 1'b1;
     wire [11:0]      douta;
 
@@ -205,8 +205,58 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
             SCREEN_WIDTH = 640,
             SCREEN_HEIGHT = 480;
 
-    parameter [511:0] AZIMO =   512'h00000000000000000000000001000380028006C004400C6008201830101030183FF8600C4004C006800280030000000000000000000000000000000000000000;
-    // parameter [511:0] MASK =    512'h10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000;
+    parameter [511:0]   AZIMO = 512'h00000000000000000000070007000F000F800D800D80198019C018C01FC030E030E0306060606070F8F800000000000000000000000000000000000000000000,
+                        BZIMO = 512'h000000000000000000007F8039E038E038E038E038E039C03F8038E03860387038703870387038E07FC000000000000000000000000000000000000000000000,
+                        CZIMO = 512'h0000000000000000000007E01CE03870383030307000700070007000700070007030383038601CE00F8000000000000000000000000000000000000000000000,
+                        DZIMO = 512'h00000000000000000000FF0039C038E038E03870387038703870387038703870387038E038E039C0FF0000000000000000000000000000000000000000000000,
+                        EZIMO = 512'h00000000000000000000FFE070E0703070307000718071807F807180718071807000703070307060FFE000000000000000000000000000000000000000000000,
+                        FZIMO = 512'h00000000000000000000FFE070E0703070307000718071807F807180718071807000700070007000FC0000000000000000000000000000000000000000000000,
+                        GZIMO = 512'h000000000000000000000F801CC0386038603060700070007000700073F870E070E038E038E01CE00F8000000000000000000000000000000000000000000000,
+                        HZIMO = 512'h00000000000000000000F8F87070707070707070707070707FF07070707070707070707070707070F8F800000000000000000000000000000000000000000000,
+                        IZIMO = 512'h000000000000000000003FE0070007000700070007000700070007000700070007000700070007003FE000000000000000000000000000000000000000000000,
+                        JZIMO = 512'h000000000000000000001FF0038003800380038003800380038003800380038003800380038003800380738077003E0000000000000000000000000000000000,
+                        KZIMO = 512'h00000000000000000000FBE071C07380730076007C007E007E007F0073007380718071C070C070E0F9F000000000000000000000000000000000000000000000,
+                        LZIMO = 512'h00000000000000000000FC0070007000700070007000700070007000700070007000703070307060FFE000000000000000000000000000000000000000000000,
+                        MZIMO = 512'h00000000000000000000F0F071E071E079E079E07BE07BE07BE07FE07FE07EE06EE06EE06EE06CE0F1F000000000000000000000000000000000000000000000,
+                        NZIMO = 512'h0000000000000000000079F838603C603C603E603E6037603760336033E031E031E031E030E030E0FC6000000000000000000000000000000000000000000000,
+                        OZIMO = 512'h000000000000000000000F801DC038E0386070707070707070707070707070707070386038E01DC00F8000000000000000000000000000000000000000000000,
+                        PZIMO = 512'h00000000000000000000FF8070E07070707070707070707071E07F80700070007000700070007000FC0000000000000000000000000000000000000000000000,
+                        QZIMO = 512'h000000000000000000000F801DC038E0386070707070707070707070707070707F703B603BE01DC00F8001F000E0000000000000000000000000000000000000,
+                        RZIMO = 512'h00000000000000000000FFC070E0707070707070707070E07F8073007380718071C070E070E07070F87800000000000000000000000000000000000000000000,
+                        SZIMO = 512'h000000000000000000001FE038E070607060700078003E001F8007E001E000F060706070707038E00FC000000000000000000000000000000000000000000000,
+                        TZIMO = 512'h000000000000000000007FF06730C718C718070007000700070007000700070007000700070007001FC000000000000000000000000000000000000000000000,
+                        UZIMO = 512'h000000000000000000007CF038603860386038603860386038603860386038603860386038601CC00F8000000000000000000000000000000000000000000000,
+                        VZIMO = 512'h00000000000000000000F8F0706030C030C038C038C0198019801D801D800F000F000F000E000600060000000000000000000000000000000000000000000000,
+                        WZIMO = 512'h00000000000000000000FFF867306330733073303760376037E037E03DE03DC01DC01DC019C01980198000000000000000000000000000000000000000000000,
+                        XZIMO = 512'h000000000000000000007DF038C018C01CC00D800F8007000600070007000F800D8019C018C030E079F000000000000000000000000000000000000000000000,
+                        YZIMO = 512'h00000000000000000000F8F870303060386018C01CC01F800F800F000700070007000700070007001FC000000000000000000000000000000000000000000000,
+                        ZZIMO = 512'h000000000000000000003FF0386070E060C001C0018003000300060006000C001C001830383030607FE000000000000000000000000000000000000000000000;
+
+    wire [511:0] ALPHA_TABLE [0:21-1];
+    // initial begin
+        assign ALPHA_TABLE[0] = QZIMO;
+        assign ALPHA_TABLE[1] = WZIMO;
+        assign ALPHA_TABLE[2] = EZIMO;
+        assign ALPHA_TABLE[3] = RZIMO;
+        assign ALPHA_TABLE[4] = TZIMO;
+        assign ALPHA_TABLE[5] = YZIMO;
+        assign ALPHA_TABLE[6] = UZIMO;
+        assign ALPHA_TABLE[7] = AZIMO;
+        assign ALPHA_TABLE[8] = SZIMO;
+        assign ALPHA_TABLE[9] = DZIMO;
+        assign ALPHA_TABLE[10] = FZIMO;
+        assign ALPHA_TABLE[11] = GZIMO;
+        assign ALPHA_TABLE[12] = HZIMO;
+        assign ALPHA_TABLE[13] = JZIMO;
+        assign ALPHA_TABLE[14] = ZZIMO;
+        assign ALPHA_TABLE[15] = XZIMO;
+        assign ALPHA_TABLE[16] = CZIMO;
+        assign ALPHA_TABLE[17] = VZIMO;
+        assign ALPHA_TABLE[18] = BZIMO;
+        assign ALPHA_TABLE[19] = NZIMO;
+        assign ALPHA_TABLE[20] = MZIMO;
+    // end
+
     function is_in_screen;
     input [19:0] pos;
     begin
@@ -284,35 +334,61 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
         end
     endgenerate
     
+    // wire            logo_area;  
+    // reg [9:0] logo_x = 10'd0, logo_y = 10'd0;
+    // parameter [9:0] logo_width = 10'd45;
+    // parameter [9:0] logo_height = 10'd40;
+
+    // assign logo_area = ((pix_y >= logo_y) & (pix_y < logo_y + logo_height) & 
+    //                     (pix_x >= logo_x) & (pix_x < logo_x + logo_width)) ? 1'b1 : 1'b0;
+
+
     integer j;
     always@(posedge vga_clk or negedge rst) begin
         if(rst == 1'b0) begin
             pix_data <= `BLACK;
-            
+            // rom_addr <= 16'd0;
         end else if (!is_in_screen({pix_x, pix_y})) begin
             pix_data <= `BLACK;
+            // rom_addr <= 16'd0;
+        // end else if (pix_x <= 10'd60 && pix_y <= 60) begin
+        //     if (logo_area == 1'b1) begin
+        //        rom_addr <= rom_addr + 16'd1;
+        //        pix_data <= douta;
+        //     end else if (pix_x >= logo_x + logo_width && pix_y >= logo_y + logo_height) begin
+        //         rom_addr <= 20'd0;
+        //     end else begin
+        //        rom_addr <= rom_addr;
+        //        pix_data <= `BLACK;
+        //     end
         end else begin  : loop
             for (j = 0; j < MAX_LEN; j = j + 1) begin
                 if (obj_arr[j][ENUML:ENUMR] == `NONE_ENUM) begin
                     pix_data <= `GREEN;
                     disable loop;
                 end else if (obj_arr[j][ENUML:ENUMR] == `ROUNDRECT_ENUM) begin
-                    if (is_obj_in_rectangle({pix_x, pix_y}, obj_arr[j])) begin
+                    if (is_obj_in_rounded_rectangle({pix_x, pix_y}, obj_arr[j])) begin
                             // pix_data <= obj_arr[j][COLORL:COLORR];
-                            
-                            if (((pix_x) < 10'd16 + obj_arr[j][XL:XR]) && ((pix_y) < 10'd32 + obj_arr[j][YL:YR])) begin
-                                if ((AZIMO << ((pix_x - obj_arr[j][XL:XR]) + (pix_y - obj_arr[j][YL:YR]) * 10'd16)) >> 511) begin
-                                    pix_data <= `BLACK;
-                                end else begin
-                                    // pix_data <= `BLACK;
-                                    pix_data <= obj_arr[j][COLORL:COLORR];
-                                end
-                                // pix_data <= obj_arr[j][COLORL:COLORR];
-                            end else begin
+                        // rom_addr <= rom_addr + 1;
+                        
+                        if (((pix_x) < 10'd16 + obj_arr[j][XL:XR] + 10'd15) && ((pix_y) < 10'd32 + obj_arr[j][YL:YR] + 10'd4) && 
+                            ((pix_x) >= obj_arr[j][XL:XR] + 10'd15) && ((pix_y) >= obj_arr[j][YL:YR] + 10'd4)) begin // 字模方块内
+                            if ((ALPHA_TABLE[j] << ((pix_x - obj_arr[j][XL:XR] - 10'd15) + (pix_y - obj_arr[j][YL:YR] - 10'd4) * 10'd16)) >> 511) begin
+                                pix_data <= `BLACK;
+                            end else begin // 填充
                                 // pix_data <= `BLACK;
                                 pix_data <= obj_arr[j][COLORL:COLORR];
+                                // pix_data <= douta;
                             end
-                            disable loop;
+                            // pix_data <= obj_arr[j][COLORL:COLORR];
+                        end else begin // 填充
+                            // pix_data <= `BLACK;
+                            pix_data <= obj_arr[j][COLORL:COLORR];
+                            // pix_data <= douta;
+                        end
+                        disable loop;
+                    // end else if (is_obj_in_rectangle({pix_x + 10'd1, pix_y}, obj_arr[j])) begin
+                        // rom_addr <= (pix_y - obj_arr[j][YL:YR]) * 16'd16;
                     end
                 end else begin
                     pix_data <= `GREEN;
@@ -365,7 +441,7 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
     output wire [LEN_BITS-1:0] arr_len,
     output wire [15:0] test_pin
 );  
-    parameter [9:0] KEYBOARD_X = 80, KEYBOARD_Y = 120, KEY_WIDTH = 40, 
+    parameter [9:0] KEYBOARD_X = 80, KEYBOARD_Y = 120, KEY_WIDTH = 45, 
                 KEY_HEIGHT = 40, KEY_D1 = 10, KEY_D2 = 20+40,
                 KEY_D3 = 30, KEY_D4 = 40, KEY_D5 = 120;
 
