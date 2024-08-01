@@ -63,14 +63,14 @@ vga_driver vga(
 
 
 
-parameter OBJ_WIDTH = 66, MAX_LEN = 16;
+parameter OBJ_WIDTH = 66, MAX_LEN = 21;
 wire [(OBJ_WIDTH * MAX_LEN)-1:0] obj_arr_packed;
 
 wire butf;
 wire [5:0] obj_arr_len;
 fliter u1(.clk(clk), .rst(rst), .data(but), .df(butf));
 
-basic_graph graph(.vga_clk(vga_clk), .rst(rst), .pix_x(pix_x), .pix_y(pix_y), 
+basic_graph #(.OBJ_WIDTH(OBJ_WIDTH), .MAX_LEN(MAX_LEN)) graph(.vga_clk(vga_clk), .rst(rst), .pix_x(pix_x), .pix_y(pix_y), 
                     .obj_arr_packed(obj_arr_packed), 
                     .obj_arr_len(obj_arr_len), .pix_data(pix_data));
 painter #(.OBJ_WIDTH(OBJ_WIDTH), .MAX_LEN(MAX_LEN)) u2(
@@ -162,7 +162,7 @@ endmodule
 `define CIRCLE_ENUM 4'd2
 `define ROUNDRECT_ENUM 4'd3
 
-module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 16, parameter LEN_BITS = 6)(
+module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN_BITS = 6)(
     input wire vga_clk,
     input wire rst,
     input wire [9:0] pix_x,
@@ -279,40 +279,49 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 16, parameter
             pix_data <= `BLACK;
         end else begin  : loop
             for (j = 0; j < MAX_LEN; j = j + 1) begin
-                // if (obj_arr[j][ENUML:ENUMR] == `NONE_ENUM) begin
-                //     pix_data <= `BLACK;
-                //     disable loop;
-                // end
+                if (obj_arr[j][ENUML:ENUMR] == `NONE_ENUM) begin
+                    pix_data <= `BLACK;
+                    disable loop;
+                end else if (obj_arr[j][ENUML:ENUMR] == `ROUNDRECT_ENUM) begin
+                    if (is_obj_in_rounded_rectangle({pix_x, pix_y}, obj_arr[j])) begin
+                            pix_data <= obj_arr[j][COLORL:COLORR];
+                            disable loop;
+                    end
+                end else begin
+                    pix_data <= `BLACK;
+                    disable loop;
+                end
                 // if (obj_arr[j][ENUML:ENUMR] == RECTANGLE_ENUM && is_obj_in_rectangle(
                 //     {pix_x, pix_y}, obj[j]))
-                case (obj_arr[j][ENUML:ENUMR])
-                    `NONE_ENUM : begin
-                        pix_data <= `BLACK;
-                        disable loop;
-                    end 
-                    `RECTANGLE_ENUM : begin
-                        if (is_obj_in_rectangle({pix_x, pix_y}, obj_arr[j])) begin
-                            pix_data <= obj_arr[j][COLORL:COLORR];
-                            disable loop;
-                        end
-                    end
-                    `CIRCLE_ENUM : begin
-                        if (is_obj_in_circle({pix_x, pix_y}, obj_arr[j])) begin
-                            pix_data <= obj_arr[j][COLORL:COLORR];
-                            disable loop;
-                        end
-                    end
-                    `ROUNDRECT_ENUM : begin
-                        if (is_obj_in_rounded_rectangle({pix_x, pix_y}, obj_arr[j])) begin
-                            pix_data <= obj_arr[j][COLORL:COLORR];
-                            disable loop;
-                        end
-                    end
-                    default: begin
-                        pix_data <= `BLACK;
-                        disable loop;
-                    end
-                endcase
+                
+                // case (obj_arr[j][ENUML:ENUMR])
+                    // `NONE_ENUM : begin
+                    //     pix_data <= `BLACK;
+                    //     disable loop;
+                    // end 
+                    // `RECTANGLE_ENUM : begin
+                    //     if (is_obj_in_rectangle({pix_x, pix_y}, obj_arr[j])) begin
+                    //         pix_data <= obj_arr[j][COLORL:COLORR];
+                    //         disable loop;
+                    //     end
+                    // end
+                    // `CIRCLE_ENUM : begin
+                    //     if (is_obj_in_circle({pix_x, pix_y}, obj_arr[j])) begin
+                    //         pix_data <= obj_arr[j][COLORL:COLORR];
+                    //         disable loop;
+                    //     end
+                    // end
+                //     `ROUNDRECT_ENUM : begin
+                //         if (is_obj_in_rounded_rectangle({pix_x, pix_y}, obj_arr[j])) begin
+                //             pix_data <= obj_arr[j][COLORL:COLORR];
+                //             disable loop;
+                //         end
+                //     end
+                //     default: begin
+                //         pix_data <= `BLACK;
+                //         disable loop;
+                //     end
+                // endcase
             end
         end
     end
@@ -320,17 +329,75 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 16, parameter
 endmodule
 
 
-module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 16, parameter LEN_BITS = 6)(
+module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN_BITS = 6)(
     input wire clk,
     input wire rst,
     input wire sw,
-    input wire [25:0] alpha_table,
+    // input wire [25:0] alpha_table,
     output wire [(OBJ_WIDTH * MAX_LEN)-1:0] obj_arr_packed,
     output wire [LEN_BITS-1:0] arr_len,
     output wire [15:0] test_pin
-);
+);  
+    parameter [9:0] KEYBOARD_X = 80, KEYBOARD_Y = 120, KEY_WIDTH = 40, 
+                KEY_HEIGHT = 40, KEY_D1 = 10, KEY_D2 = 20,
+                KEY_D3 = 30, KEY_D4 = 40;
+
+    parameter [OBJ_WIDTH-1:0] NONE = {`NONE_ENUM, 10'd0, 10'd0, 10'd0, 10'd0, 10'd0, `WHITE};
+    // Local parameters with int_to_10 function applied
+    localparam [OBJ_WIDTH-1:0] 
+        Q_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X), (KEYBOARD_Y), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        W_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + (KEY_WIDTH + KEY_D1)), (KEYBOARD_Y), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        E_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd2*(KEY_WIDTH + KEY_D1)), (KEYBOARD_Y), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        R_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd3*(KEY_WIDTH + KEY_D1)), (KEYBOARD_Y), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        T_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd4*(KEY_WIDTH + KEY_D1)), (KEYBOARD_Y), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        Y_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd5*(KEY_WIDTH + KEY_D1)), (KEYBOARD_Y), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        U_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd6*(KEY_WIDTH + KEY_D1)), (KEYBOARD_Y), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        
+        A_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + KEY_D3), (KEYBOARD_Y + KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        S_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + (KEY_WIDTH + KEY_D1) + KEY_D3), (KEYBOARD_Y + KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        D_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd2*(KEY_WIDTH + KEY_D1) + KEY_D3), (KEYBOARD_Y + KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        F_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd3*(KEY_WIDTH + KEY_D1) + KEY_D3), (KEYBOARD_Y + KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        G_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd4*(KEY_WIDTH + KEY_D1) + KEY_D3), (KEYBOARD_Y + KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        H_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd5*(KEY_WIDTH + KEY_D1) + KEY_D3), (KEYBOARD_Y + KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        J_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd6*(KEY_WIDTH + KEY_D1) + KEY_D3), (KEYBOARD_Y + KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        
+        Z_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + KEY_D4), (KEYBOARD_Y + 3'd2*KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd0, `WHITE},
+        X_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + (KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + 3'd2*KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        C_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd2*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + 3'd2*KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        V_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd3*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + 3'd2*KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        B_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd4*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + 3'd2*KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        N_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd5*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + 3'd2*KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
+        M_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + 3'd6*(KEY_WIDTH + KEY_D1) + KEY_D4), (KEYBOARD_Y + 3'd2*KEY_D2), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE};
+
+
     // 内部存储对象的数组
     reg [OBJ_WIDTH-1:0] obj_arr [0:MAX_LEN-1];
+    initial begin
+        obj_arr[0] = Q_OBJ;
+        obj_arr[1] = W_OBJ;
+        obj_arr[2] = E_OBJ;
+        obj_arr[3] = R_OBJ;
+        obj_arr[4] = T_OBJ;
+        obj_arr[5] = Y_OBJ;
+        obj_arr[6] = U_OBJ;
+
+        obj_arr[7] = A_OBJ;
+        obj_arr[8] = S_OBJ;
+        obj_arr[9] = D_OBJ;
+        obj_arr[10] = F_OBJ;
+        obj_arr[11] = G_OBJ;
+        obj_arr[12] = H_OBJ;
+        obj_arr[13] = J_OBJ;
+
+        obj_arr[14] = Z_OBJ;
+        obj_arr[15] = X_OBJ;
+        obj_arr[16] = C_OBJ;
+        obj_arr[17] = V_OBJ;
+        obj_arr[18] = B_OBJ;
+        obj_arr[19] = N_OBJ;
+        obj_arr[20] = M_OBJ;
+    end
+
     reg [OBJ_WIDTH-1:0] obj_reg = { `RECTANGLE_ENUM, 10'd100, 10'd100, 10'd100, 10'd100,10'd100, `GREEN};
     
     reg [LEN_BITS-1:0] len = 0;
@@ -354,17 +421,90 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 16, parameter LEN
     //         obj_arr[1] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd200, 10'd100, 10'd10, `WHITE};
     //         // add_obj({ 4'd0, 10'd200, 10'd200, 10'd100, 10'd100,10'd100, `WHITE});
     // end
-    
+    function [9:0] add10;
+        input [9:0] a, b;
+        add10 = a + b;
+    endfunction
+
+    function [9:0] int_to_10;
+        input integer i;
+        begin
+            int_to_10 = i[9:0];
+        end
+    endfunction
     integer j;
     always@(posedge clk or negedge rst) begin
         if(rst == 1'b0) begin
-            obj_arr[2] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd200, 10'd100, 10'd10, `WHITE};
-            obj_arr[1] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd40, 10'd40, 10'd5, `GREEN};
-            obj_arr[0] = { `CIRCLE_ENUM, 10'd200, 10'd200, 10'd50, 10'd50, 10'd50, `RED};
-            obj_arr[3] = { `NONE_ENUM, 10'd150, 10'd150, 10'd20, 10'd10, 10'd10, `GREEN};
-            
+            obj_arr[0] = Q_OBJ;
+            obj_arr[1] = W_OBJ;
+            obj_arr[2] = E_OBJ;
+            obj_arr[3] = R_OBJ;
+            // obj_arr[4] = T_OBJ;
+            // obj_arr[5] = Y_OBJ;
+            // obj_arr[6] = U_OBJ;
+
+            // obj_arr[7] = A_OBJ;
+            // obj_arr[8] = S_OBJ;
+            // obj_arr[9] = D_OBJ;
+            // obj_arr[10] = F_OBJ;
+            // obj_arr[11] = G_OBJ;
+            // obj_arr[12] = H_OBJ;
+            // obj_arr[13] = J_OBJ;
+
+            // obj_arr[14] = Z_OBJ;
+            // obj_arr[15] = X_OBJ;
+            // obj_arr[16] = C_OBJ;
+            // obj_arr[17] = V_OBJ;
+            // obj_arr[18] = B_OBJ;
+            // obj_arr[19] = N_OBJ;
+            // obj_arr[20] = M_OBJ;
+            // obj_arr[2] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd200, 10'd100, 10'd10, `WHITE};
+            // obj_arr[1] = { `ROUNDRECT_ENUM, 10'd100, 10'd100, 10'd40, 10'd40, 10'd5, `GREEN};
+            // obj_arr[0] = { `CIRCLE_ENUM, 10'd200, 10'd200, 10'd50, 10'd50, 10'd50, `RED};
+            // obj_arr[3] = { `NONE_ENUM, 10'd150, 10'd150, 10'd20, 10'd10, 10'd10, `GREEN};
+            // obj_arr[2] = { `ROUNDRECT_ENUM, 10'd80, 10'd100, 10'd200, 10'd100, 10'd10, `WHITE};
+
+            // obj_arr[0] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X), int_to_10(KEYBOARD_Y), 
+            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
+            // obj_arr[1] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1)), int_to_10(KEYBOARD_Y), 
+            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
+            // obj_arr[2] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 2), int_to_10(KEYBOARD_Y), 
+            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
+            // obj_arr[3] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 3), int_to_10(KEYBOARD_Y), 
+            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
+            // obj_arr[4] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 4), int_to_10(KEYBOARD_Y), 
+            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
+            // obj_arr[5] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 5), int_to_10(KEYBOARD_Y), 
+            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
+            // obj_arr[6] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 6), int_to_10(KEYBOARD_Y),
+            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
+
+            // obj_arr[7] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 0 + KEY_D3), int_to_10(KEYBOARD_Y + KEY_D2), 
+            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
+            // obj_arr[7+1] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 1 + KEY_D3), int_to_10(KEYBOARD_Y + KEY_D2), 
+            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
+            // obj_arr[7+2] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 2 + KEY_D3), int_to_10(KEYBOARD_Y + KEY_D2), 
+            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
+            // obj_arr[7+3] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 3 + KEY_D3), int_to_10(KEYBOARD_Y + KEY_D2), 
+            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
+            // obj_arr[7+4] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 4 + KEY_D3), int_to_10(KEYBOARD_Y + KEY_D2),
+            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
+            // obj_arr[7+5] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 5 + KEY_D3), int_to_10(KEYBOARD_Y + KEY_D2), 
+            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
+            // obj_arr[7+6] = { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (KEY_WIDTH + KEY_D1) * 6 + KEY_D3), int_to_10(KEYBOARD_Y + KEY_D2), 
+            //     int_to_10(KEY_WIDTH), int_to_10(KEY_HEIGHT), 10'd0, `WHITE};
+
             // for (j = 0; j < MAX_LEN; j = j + 1) begin
-            //     obj_arr[j] =  { 4'd0, 10'd200, 10'd200, 10'd100, 10'd100, `WHITE};
+            //     if (j / 7 == 0) begin
+            //         obj_arr[j] =  { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + j * (KEY_WIDTH + KEY_D1)), 
+            //             int_to_10(KEYBOARD_Y), int_to_10(KEY_WIDTH), int_to_10(KEYBOARD_HEIGHT), 10'd0, `WHITE};
+            //     end else if (j / 7 == 1) begin
+            //         obj_arr[j] =  { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (j - 7) * (KEY_WIDTH + KEY_D1) + KEY_D3),
+            //             int_to_10(KEYBOARD_Y + KEY_D2), int_to_10(KEY_WIDTH), int_to_10(KEYBOARD_HEIGHT), 10'd0, `WHITE};
+            //     end else if (j / 7 == 2) begin
+            //         obj_arr[j] =  { `ROUNDRECT_ENUM, int_to_10(KEYBOARD_X + (j - 14) * (KEY_WIDTH + KEY_D1) + KEY_D3 + KEY_D4),
+            //             int_to_10(KEYBOARD_Y + KEY_D2 * 2), int_to_10(KEY_WIDTH), int_to_10(KEYBOARD_HEIGHT), 10'd0, `WHITE};
+            //     end
             // end
         end else begin
             // 
@@ -404,7 +544,7 @@ module audio_and_vga (
 );
     wire    [20:0]  key_table;
     wire    [20:0]  updated_table;
-    wire    [20:0]  tone;
+    wire    [4:0]  tone;
     
     keyboard u1(.clk(clk), .rst(rst), .PS2C(PS2C), .PS2D(PS2D), 
             .alpha_table(key_table), .updated_table(updated_table));
@@ -436,5 +576,17 @@ module audio_and_vga (
         .sd(sd),//低通滤波器使能
         .audio_out(audio_out)//音调输出
     );
-endmodule
 
+    vga_test test(
+        .clk(clk),   //100Mhz时钟
+        .rst(rst),   //复位键
+        .switchs(switchs),  //拨码开关
+        .but(but),
+        .hsync(hsync),
+        .vsync(vsync),  //VGA行和场信号
+        .red(red),
+        .green(green),
+        .blue(blue),  //输出像素
+        .led(led)
+    );
+endmodule
