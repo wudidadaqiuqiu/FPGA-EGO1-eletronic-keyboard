@@ -341,7 +341,11 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
         end else if (!is_in_screen({pix_x, pix_y})) begin
             pix_data <= `BLACK;
         end else if (pix_y < 120) begin
-            pix_data <= song_pix;
+            if (is_obj_in_rectangle({pix_x, pix_y}, {4'd0, 10'd320, 10'd0, 10'd2, 10'd50, 10'd0,`WHITE})) begin
+                pix_data <= `GREEN;
+            end else begin
+                pix_data <= song_pix;    
+            end
         end else begin  : loop
             for (j = 0; j < MAX_LEN; j = j + 1) begin
                 if (obj_arr[j][ENUML:ENUMR] == `NONE_ENUM) begin
@@ -764,7 +768,7 @@ module song_change(
     wire [12-1:0] single_color;
     assign mod = ((pix_x+song[SONG_XL:SONG_XR] - SONG_X) % (DISTANCE + SINGLE_WIDTH));
     assign temp = get_single_index(pix_x, pix_y, song);
-    assign single_color = (pix_x < 98 * 3 && pix_x >= 98 * 2) ? `GREEN : `WHITE;
+    assign single_color = (pix_x < 10'd320 && pix_x >= 10'd320 - 10'd16) ? `GREEN : `WHITE;
 
     assign song_pix = 
         (!is_in_song(pix_x, pix_y, song)) ? `BLACK : (
