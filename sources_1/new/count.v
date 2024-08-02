@@ -1,5 +1,3 @@
-`timescale 1ns/1ns
-
 module counter (
     input wire clk,
     input wire rst,
@@ -25,23 +23,3 @@ flag <= 1'b0;
 end
 
 endmodule
-
-//module div(
-//    input wire clk,
-//    input wire rst,
-//    output reg clk_
-//);
-
-//reg flag;
-//counter c(.clk(clk), .rst(rst), .flag(flag));
-
-//always @ (posedge clk or negedge rst) begin
-//if (!rst )
-//clk_ <= 0;
-//else if (flag == 1'b1)
-//clk_ = ~clk_;
-//else
-//;
-//end
-
-//endmodule 
