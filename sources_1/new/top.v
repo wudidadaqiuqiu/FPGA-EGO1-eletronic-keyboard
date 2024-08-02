@@ -1,3 +1,25 @@
+ 
+`define ENUML        65
+`define ENUMR        65 - 4 + 1
+`define XL           `ENUMR-1
+`define XR           `ENUMR-10
+`define YL           `XR - 1
+`define YR           `XR - 10
+`define WIDTHL       `YR - 1
+`define WIDTHR       `YR - 10
+`define HEIGHTL      `WIDTHR - 1
+`define HEIGHTR      `WIDTHR - 10
+`define RADIUSL      `HEIGHTR - 1
+`define RADIUSR      `HEIGHTR - 10
+`define COLORL       `RADIUSR - 1
+`define COLORR       0
+`define POSXL        19
+`define POSXR        10
+`define POSYL        9
+`define POSYR        0
+`define SCREEN_WIDTH 640
+`define SCREEN_HEIGHT 480
+
 `define BLACK       12'h000
 `define WHITE       12'hfff
 `define RED         12'hf00
@@ -113,13 +135,11 @@ module vga_test(
 
     wire [12-1:0] song_pix, obj_pix;
 
-    basic_graph #(.OBJ_WIDTH(OBJ_WIDTH), .MAX_LEN(MAX_LEN)) graph(
-        .vga_clk(vga_clk), .clk(clk), .rst(rst), .pix_x(pix_x), .pix_y(pix_y), 
-        .obj_arr_packed(obj_arr_packed), 
-        .obj_arr_len(obj_arr_len), .pix_data(pix_data), .song_pix(song_pix), 
+    basic_graph graph(
+        .rst(rst), .pix_x(pix_x), .pix_y(pix_y), 
+        .pix_data(pix_data), .song_pix(song_pix), 
         .obj_pix(obj_pix));
 
-    
     // painter #(.OBJ_WIDTH(OBJ_WIDTH), .MAX_LEN(MAX_LEN)) u2(
     //         .clk(clk), .rst(rst), .sw(butf),
     //         .key_alpha_table(key_alpha_table),
@@ -136,150 +156,33 @@ endmodule
 
 
 
-module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN_BITS = 6)(
-    input wire vga_clk,
-    input wire clk,
+module basic_graph (
     input wire rst,
     input wire [9:0] pix_x,
     input wire [9:0] pix_y,
-    input wire [(OBJ_WIDTH * MAX_LEN)-1:0] obj_arr_packed,
-    input wire [LEN_BITS-1:0] obj_arr_len,
     output wire [11:0] pix_data, //输出像素点色彩信息
     input wire [12-1:0] song_pix,
     input wire [12-1:0] obj_pix
     );
 
-    parameter 
-            ENUML = 65,
-            ENUMR = 65 - 4 + 1,
-            XL= ENUMR-1,
-            XR = ENUMR-10,
-            YL = XR - 1,
-            YR = XR - 10,
-            WIDTHL = YR - 1,
-            WIDTHR = YR - 10,
-            HEIGHTL = WIDTHR - 1,
-            HEIGHTR = WIDTHR - 10,
-            RADIUSL = HEIGHTR - 1,
-            RADIUSR = HEIGHTR - 10,
-            COLORL = RADIUSR - 1,
-            COLORR = 0,
-            POSXL = 19,
-            POSXR = 10,
-            POSYL = 9,
-            POSYR = 0,
-            SCREEN_WIDTH = 640,
-            SCREEN_HEIGHT = 480;
-
-
-    wire [511:0] ALPHA_TABLE [0:21-1];
-    assign ALPHA_TABLE[0] = `QZIMO;
-    assign ALPHA_TABLE[1] = `WZIMO;
-    assign ALPHA_TABLE[2] = `EZIMO;
-    assign ALPHA_TABLE[3] = `RZIMO;
-    assign ALPHA_TABLE[4] = `TZIMO;
-    assign ALPHA_TABLE[5] = `YZIMO;
-    assign ALPHA_TABLE[6] = `UZIMO;
-    assign ALPHA_TABLE[7] = `AZIMO;
-    assign ALPHA_TABLE[8] = `SZIMO;
-    assign ALPHA_TABLE[9] = `DZIMO;
-    assign ALPHA_TABLE[10] = `FZIMO;
-    assign ALPHA_TABLE[11] = `GZIMO;
-    assign ALPHA_TABLE[12] = `HZIMO;
-    assign ALPHA_TABLE[13] = `JZIMO;
-    assign ALPHA_TABLE[14] = `ZZIMO;
-    assign ALPHA_TABLE[15] = `XZIMO;
-    assign ALPHA_TABLE[16] = `CZIMO;
-    assign ALPHA_TABLE[17] = `VZIMO;
-    assign ALPHA_TABLE[18] = `BZIMO;
-    assign ALPHA_TABLE[19] = `NZIMO;
-    assign ALPHA_TABLE[20] = `MZIMO;
-
     function is_in_screen;
         input [19:0] pos;
         begin
-            is_in_screen = (pos[POSXL:POSXR] >= 0 && pos[POSXL:POSXR] <= SCREEN_WIDTH &&
-                            pos[POSYL:POSYR] >= 0 && pos[POSYL:POSYR] <= SCREEN_HEIGHT);
+            is_in_screen = (pos[`POSXL:`POSXR] >= 0 && pos[`POSXL:`POSXR] <= `SCREEN_WIDTH &&
+                            pos[`POSYL:`POSYR] >= 0 && pos[`POSYL:`POSYR] <= `SCREEN_HEIGHT);
         end
     endfunction
-    function is_obj_in_rectangle;
-        input [19:0] pos;
-        input [OBJ_WIDTH-1:0] obj;
-        begin
-            is_obj_in_rectangle = (pos[19:10] >= obj[XL: XR] && pos[19:10] < obj[XL:XR] + obj[WIDTHL:WIDTHR]
-                            && pos[9:0] >= obj[YL: YR] && pos[9:0] < obj[YL:YR] + obj[HEIGHTL:HEIGHTR]);
-        end
-    endfunction
-
-    function is_obj_in_circle;
-        input [19:0] pos;
-        input [OBJ_WIDTH-1:0] obj;
-
-        reg [19:0] dis_sq;
-        // reg [31:0] r_2;
-        reg [19:0] tempx, tempy;
-        begin
-            tempx = (pos[POSXL:POSXR] > obj[XL:XR]) ? (pos[POSXL:POSXR] - obj[XL:XR]) : (obj[XL:XR] - pos[POSXL:POSXR]);
-            tempy = (pos[POSYL:POSYR] > obj[YL:YR]) ? (pos[POSYL:POSYR] - obj[YL:YR]) : (obj[YL:YR] - pos[POSYL:POSYR]);
-            dis_sq = tempx * tempx + tempy * tempy;
-            // r_2 = ;
-            is_obj_in_circle = (dis_sq < obj[RADIUSL:RADIUSR] * obj[RADIUSL:RADIUSR] * 20'd1);
-        end
-    endfunction
-
-    function is_obj_in_rounded_rectangle;
-        input [19:0] pos;
-        input [OBJ_WIDTH-1:0] obj;
-
-        reg [9:0] X,Y,W,H,R;
-        
-        begin
-            X = obj[XL: XR];
-            Y = obj[YL: YR];
-            W = obj[WIDTHL:WIDTHR];
-            H = obj[HEIGHTL:HEIGHTR];
-            R = obj[RADIUSL:RADIUSR];
-            if (32'd2 * R >= 32'd1 * W || 32'd2 * R >= 32'd1 * H)
-                is_obj_in_rounded_rectangle = 0;
-            else begin
-                is_obj_in_rounded_rectangle = (
-                    is_obj_in_rectangle(pos, {4'd0, (X+R), (Y), 
-                                        (W - 3'd2*R), (H), 10'd0, 12'd0}) ||
-                    is_obj_in_rectangle(pos, {4'd0, (X), (Y+R), 
-                                        (W), (H - 3'd2*R), 10'd0, 12'd0}) ||
-                    is_obj_in_circle(pos,    {4'd0, (X+R), (Y+R), 10'd0, 10'd0, (R), 12'd0}) ||
-                    is_obj_in_circle(pos,    {4'd0, (X+W-R), (Y+R), 10'd0, 10'd0, (R), 12'd0}) ||
-                    is_obj_in_circle(pos,    {4'd0, (X+R), (Y+H-R), 10'd0, 10'd0, (R), 12'd0}) ||
-                    is_obj_in_circle(pos,    {4'd0, (X+W-R), (Y+H-R), 10'd0, 10'd0, (R), 12'd0})
-                ) ? 1 : 0;
-            end
-        end
-    endfunction
-
-
-    // 定义一个多维数组来存储对象
-    wire [OBJ_WIDTH-1:0] obj_arr [0:MAX_LEN-1];
-
-    // 从一维数组中解包到多维数组
-    genvar i;
-    generate
-        for (i = 0; i < MAX_LEN; i = i + 1) begin : unpack
-            assign obj_arr[i] = obj_arr_packed[(i+1)*OBJ_WIDTH-1: OBJ_WIDTH * i];
-        end
-    endgenerate
-
-    wire [12-1:0] song_screen_pix;
-    assign song_screen_pix = 
-        (is_obj_in_rectangle({pix_x, pix_y}, {4'd0, 10'd320, 10'd0, 10'd2, 10'd50, 10'd0,`WHITE})) ?
-            `GREEN : song_pix;
+    // wire [12-1:0] song_screen_pix;
+    // assign song_screen_pix = 
+    //     (is_obj_in_rectangle({pix_x, pix_y}, {4'd0, 10'd320, 10'd0, 10'd2, 10'd50, 10'd0,`WHITE})) ?
+    //         `GREEN : song_pix;
 
     // pix_data 赋值
-    // integer j;
     assign pix_data = 
         (!rst) ? `BLACK : (
             (!is_in_screen({pix_x, pix_y})) ? `BLACK : (
                 (pix_y < 120) ? 
-                    song_screen_pix : obj_pix
+                    song_pix : obj_pix
             )
         );
 endmodule
@@ -499,27 +402,7 @@ module obj_manage #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter 
             KEY_HEIGHT = 40, KEY_D1 = 10, KEY_D2 = 20+40,
             KEY_D3 = 30, KEY_D4 = 40, KEY_D5 = 120;
 
-    parameter 
-        ENUML = 65,
-        ENUMR = 65 - 4 + 1,
-        XL= ENUMR-1,
-        XR = ENUMR-10,
-        YL = XR - 1,
-        YR = XR - 10,
-        WIDTHL = YR - 1,
-        WIDTHR = YR - 10,
-        HEIGHTL = WIDTHR - 1,
-        HEIGHTR = WIDTHR - 10,
-        RADIUSL = HEIGHTR - 1,
-        RADIUSR = HEIGHTR - 10,
-        COLORL = RADIUSR - 1,
-        COLORR = 0,
-        POSXL = 19,
-        POSXR = 10,
-        POSYL = 9,
-        POSYR = 0,
-        SCREEN_WIDTH = 640,
-        SCREEN_HEIGHT = 480;
+
 
     parameter [OBJ_WIDTH-1:0] NONE = {`NONE_ENUM, 10'd0, 10'd0, 10'd0, 10'd0, 10'd0, `WHITE};
     
@@ -560,16 +443,16 @@ module obj_manage #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter 
     function is_in_screen;
         input [19:0] pos;
         begin
-            is_in_screen = (pos[POSXL:POSXR] >= 0 && pos[POSXL:POSXR] <= SCREEN_WIDTH &&
-                            pos[POSYL:POSYR] >= 0 && pos[POSYL:POSYR] <= SCREEN_HEIGHT);
+            is_in_screen = (pos[`POSXL:`POSXR] >= 0 && pos[`POSXL:`POSXR] <= `SCREEN_WIDTH &&
+                            pos[`POSYL:`POSYR] >= 0 && pos[`POSYL:`POSYR] <= `SCREEN_HEIGHT);
         end
     endfunction
     function is_obj_in_rectangle;
         input [19:0] pos;
         input [OBJ_WIDTH-1:0] obj;
         begin
-            is_obj_in_rectangle = (pos[19:10] >= obj[XL: XR] && pos[19:10] < obj[XL:XR] + obj[WIDTHL:WIDTHR]
-                            && pos[9:0] >= obj[YL: YR] && pos[9:0] < obj[YL:YR] + obj[HEIGHTL:HEIGHTR]);
+            is_obj_in_rectangle = (pos[19:10] >= obj[`XL: `XR] && pos[19:10] < obj[`XL:`XR] + obj[`WIDTHL:`WIDTHR]
+                            && pos[9:0] >= obj[`YL: `YR] && pos[9:0] < obj[`YL:`YR] + obj[`HEIGHTL:`HEIGHTR]);
         end
     endfunction
 
@@ -581,11 +464,11 @@ module obj_manage #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter 
         // reg [31:0] r_2;
         reg [19:0] tempx, tempy;
         begin
-            tempx = (pos[POSXL:POSXR] > obj[XL:XR]) ? (pos[POSXL:POSXR] - obj[XL:XR]) : (obj[XL:XR] - pos[POSXL:POSXR]);
-            tempy = (pos[POSYL:POSYR] > obj[YL:YR]) ? (pos[POSYL:POSYR] - obj[YL:YR]) : (obj[YL:YR] - pos[POSYL:POSYR]);
+            tempx = (pos[`POSXL:`POSXR] > obj[`XL:`XR]) ? (pos[`POSXL:`POSXR] - obj[`XL:`XR]) : (obj[`XL:`XR] - pos[`POSXL:`POSXR]);
+            tempy = (pos[`POSYL:`POSYR] > obj[`YL:`YR]) ? (pos[`POSYL:`POSYR] - obj[`YL:`YR]) : (obj[`YL:`YR] - pos[`POSYL:`POSYR]);
             dis_sq = tempx * tempx + tempy * tempy;
             // r_2 = ;
-            is_obj_in_circle = (dis_sq < obj[RADIUSL:RADIUSR] * obj[RADIUSL:RADIUSR] * 20'd1);
+            is_obj_in_circle = (dis_sq < obj[`RADIUSL:`RADIUSR] * obj[`RADIUSL:`RADIUSR] * 20'd1);
         end
     endfunction
 
@@ -596,11 +479,11 @@ module obj_manage #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter 
         reg [9:0] X,Y,W,H,R;
         
         begin
-            X = obj[XL: XR];
-            Y = obj[YL: YR];
-            W = obj[WIDTHL:WIDTHR];
-            H = obj[HEIGHTL:HEIGHTR];
-            R = obj[RADIUSL:RADIUSR];
+            X = obj[`XL: `XR];
+            Y = obj[`YL: `YR];
+            W = obj[`WIDTHL:`WIDTHR];
+            H = obj[`HEIGHTL:`HEIGHTR];
+            R = obj[`RADIUSL:`RADIUSR];
             if (32'd2 * R >= 32'd1 * W || 32'd2 * R >= 32'd1 * H)
                 is_obj_in_rounded_rectangle = 0;
             else begin
@@ -651,12 +534,12 @@ module obj_manage #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter 
             obj_arr[21] <= NONE;
         end else if (!key_alpha_table) begin 
             for (i1 = 0; i1 < MAX_LEN; i1 = i1 + 1) begin
-                obj_arr[i1][COLORL:COLORR] <= `WHITE;
+                obj_arr[i1][`COLORL:`COLORR] <= `WHITE;
             end
         end else begin
             for (i1 = 0; i1 < 21; i1 = i1 + 1) begin
                 if ((key_alpha_table >> i1) % 2) begin
-                    obj_arr[i1][COLORL:COLORR] <= `GREY;
+                    obj_arr[i1][`COLORL:`COLORR] <= `GREY;
                 end
             end
             // obj_arr[updated_table/2][COLORL:COLORR] <= `GREY;
@@ -671,20 +554,20 @@ module obj_manage #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter 
             obj_pix <= `BLACK;
         end else begin  : loop
             for (j = 0; j < `ALPHA_TABLE_SIZE; j = j + 1) begin
-                if (obj_arr[j][ENUML:ENUMR] == `NONE_ENUM) begin
+                if (obj_arr[j][`ENUML:`ENUMR] == `NONE_ENUM) begin
                     obj_pix <= `BLACK;
                     disable loop;
-                end else if (obj_arr[j][ENUML:ENUMR] == `ROUNDRECT_ENUM) begin
+                end else if (obj_arr[j][`ENUML:`ENUMR] == `ROUNDRECT_ENUM) begin
                     if (is_obj_in_rounded_rectangle({pix_x, pix_y}, obj_arr[j])) begin
-                        if (((pix_x) < 10'd16 + obj_arr[j][XL:XR] + 10'd15) && ((pix_y) < 10'd32 + obj_arr[j][YL:YR] + 10'd4) && 
-                            ((pix_x) >= obj_arr[j][XL:XR] + 10'd15) && ((pix_y) >= obj_arr[j][YL:YR] + 10'd4)) begin // 字模方块内
-                            if ((alpha_table[j] << ((pix_x - obj_arr[j][XL:XR] - 10'd15) + (pix_y - obj_arr[j][YL:YR] - 10'd4) * 10'd16)) >> 511) begin
+                        if (((pix_x) < 10'd16 + obj_arr[j][`XL:`XR] + 10'd15) && ((pix_y) < 10'd32 + obj_arr[j][`YL:`YR] + 10'd4) && 
+                            ((pix_x) >= obj_arr[j][`XL:`XR] + 10'd15) && ((pix_y) >= obj_arr[j][`YL:`YR] + 10'd4)) begin // 字模方块内
+                            if ((alpha_table[j] << ((pix_x - obj_arr[j][`XL:`XR] - 10'd15) + (pix_y - obj_arr[j][`YL:`YR] - 10'd4) * 10'd16)) >> 511) begin
                                 obj_pix <= `BLACK;
                             end else begin // 填充
-                                obj_pix <= obj_arr[j][COLORL:COLORR];
+                                obj_pix <= obj_arr[j][`COLORL:`COLORR];
                             end
                         end else begin // 填充
-                            obj_pix <= obj_arr[j][COLORL:COLORR];
+                            obj_pix <= obj_arr[j][`COLORL:`COLORR];
                         end
                         disable loop;
                     end
@@ -699,12 +582,12 @@ module obj_manage #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter 
     end
 
 endmodule
+
 module song_change(
     input wire clk,
     input wire rst,
     input wire [10-1:0] pix_x,
     input wire [10-1:0] pix_y,
-    // output wire [44-1:0] song_,
     output wire [12-1:0] song_pix
     );
     
@@ -717,18 +600,6 @@ module song_change(
         SQUARE_WR = 32,
         SQUARE_HL = 32 -1,
         SQUARE_HR = 0;
-    function is_in_square;
-        input [31:0] pos_x;
-        input [31:0] pos_y;
-        input [32*4 - 1:0] square;
-
-        begin
-            is_in_square = (pos_x >= square[SQUARE_XL:SQUARE_XR] && 
-                pos_x < square[SQUARE_XL:SQUARE_XR] + square[SQUARE_WL:SQUARE_WR] &&
-                pos_y >= square[SQUARE_YL:SQUARE_YR] && 
-                pos_y < square[SQUARE_YL:SQUARE_YR] + square[SQUARE_HL:SQUARE_HR]) ? 1 : 0;
-        end
-    endfunction
 
     parameter [44-1:0] song1 = {9'd128, 3'd0, 32'd0};
     parameter 
@@ -757,41 +628,20 @@ module song_change(
         `__,`__,`__,`__,      `DO1,`__,`XI_7,`__,  `LA_6,`__,`XI_7,`__, `DO1,`__,`XI_7,`__,
         `XI_7,`__,`DO1,`__,   `DO1,`__,`RE2,`__,   `DO1,`__,`__,`__,   `__,`__,`__,`__
     };
-    wire [5-1:0] test_song [0:128-1];
 
-    genvar i;
-    generate
-        for (i = 0; i < 128; i = i + 1) begin
-            assign test_song[i] = test_song_arr[5*i:(i+1)*5-1];
+    function is_in_square;
+        input [31:0] pos_x;
+        input [31:0] pos_y;
+        input [32*4 - 1:0] square;
+
+        begin
+            is_in_square = (pos_x >= square[SQUARE_XL:SQUARE_XR] && 
+                pos_x < square[SQUARE_XL:SQUARE_XR] + square[SQUARE_WL:SQUARE_WR] &&
+                pos_y >= square[SQUARE_YL:SQUARE_YR] && 
+                pos_y < square[SQUARE_YL:SQUARE_YR] + square[SQUARE_HL:SQUARE_HR]) ? 1 : 0;
         end
-    endgenerate
-
-    parameter [0:`ALPHA_TABLE_TOTAL_BITS-1] ALPHA_TABLE_ = `ALPHA_TABLE;
-    wire [511:0] alpha_table [0:21-1];
-    genvar i2;
-    generate
-        for (i2 = 0; i2 < `ALPHA_TABLE_SIZE; i2 = i2 + 1) begin
-            assign alpha_table[i2] = ALPHA_TABLE_[512*i2:(i2+1)*512-1];
-        end
-    endgenerate
-
-    reg [44-1:0] song = song1;
-    wire flag1;
-
-    // assign song_ = song;
-    counter #(.NUM(25'd1_000_000)) div(.clk(clk), .rst(rst), .flag(flag1));
-    always @(posedge flag1 or negedge rst) begin
-        if (!rst) begin
-            song <= song1;
-        end else if (song[SONG_XL:SONG_XR] >= 
-                    SONG_X + (DISTANCE + SINGLE_WIDTH) * song[SONG_LENL:SONG_LENR]) begin
-            song[SONG_XL:SONG_XR] <= 0;
-        end else begin
-            song[SONG_XL:SONG_XR] <= song[SONG_XL:SONG_XR] + 1;
-        end
-    end
-
-    
+    endfunction
+        
     function is_in_song;
         input [31:0] posx, posy;
         input [SONG_LENL:0] song;
@@ -819,6 +669,42 @@ module song_change(
         end
     endfunction
 
+    // test song pack
+    wire [5-1:0] test_song [0:128-1];
+    genvar i;
+    generate
+        for (i = 0; i < 128; i = i + 1) begin
+            assign test_song[i] = test_song_arr[5*i:(i+1)*5-1];
+        end
+    endgenerate
+
+    // alpha table pack
+    parameter [0:`ALPHA_TABLE_TOTAL_BITS-1] ALPHA_TABLE_ = `ALPHA_TABLE;
+    wire [511:0] alpha_table [0:21-1];
+    genvar i2;
+    generate
+        for (i2 = 0; i2 < `ALPHA_TABLE_SIZE; i2 = i2 + 1) begin
+            assign alpha_table[i2] = ALPHA_TABLE_[512*i2:(i2+1)*512-1];
+        end
+    endgenerate
+
+    // song move
+    reg [44-1:0] song = song1;
+    wire flag1;
+    // 100hz ++
+    counter #(.NUM(25'd1_000_000)) div(.clk(clk), .rst(rst), .flag(flag1));
+    always @(posedge flag1 or negedge rst) begin
+        if (!rst) begin
+            song <= song1;
+        end else if (song[SONG_XL:SONG_XR] >= 
+                    SONG_X + (DISTANCE + SINGLE_WIDTH) * song[SONG_LENL:SONG_LENR]) begin
+            song[SONG_XL:SONG_XR] <= 0;
+        end else begin
+            song[SONG_XL:SONG_XR] <= song[SONG_XL:SONG_XR] + 1;
+        end
+    end
+
+    // color calc
     wire [9-1:0] temp;
     wire [10-1:0] mod;
     wire [12-1:0] single_color;
@@ -826,7 +712,8 @@ module song_change(
     assign temp = get_single_index(pix_x, pix_y, song);
     assign single_color = (pix_x < 10'd320 && pix_x >= 10'd320 - 10'd16) ? `GREEN : `WHITE;
 
-    assign song_pix = 
+    wire [12-1:0] song_pix_;
+    assign song_pix_ = 
         (!is_in_song(pix_x, pix_y, song)) ? `BLACK : (
             (mod >= SINGLE_WIDTH) ? `BLACK : (
                 // (mod < 10'd16 + 10'd15 && pix_y < 10'd32 + SONG_Y10 + 10'd4 && mod >= 10'd15 && pix_y >= SONG_Y10 + 10'd4) ? (
@@ -837,5 +724,9 @@ module song_change(
                 // ) : `BLACK
             )
         );
+
+    assign song_pix = 
+        (is_in_square(pix_x, pix_y, {32'd320, 32'd0, 32'd2, 32'd50})) ?
+            `GREEN : song_pix_;
 endmodule
 
