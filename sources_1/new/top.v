@@ -112,12 +112,12 @@ module vga_test(
     fliter u1(.clk(clk), .rst(rst), .data(but), .df(butf));
 
     wire [12-1:0] song_pix, obj_pix;
-    wire use_obj_pix;
+
     basic_graph #(.OBJ_WIDTH(OBJ_WIDTH), .MAX_LEN(MAX_LEN)) graph(
         .vga_clk(vga_clk), .clk(clk), .rst(rst), .pix_x(pix_x), .pix_y(pix_y), 
         .obj_arr_packed(obj_arr_packed), 
         .obj_arr_len(obj_arr_len), .pix_data(pix_data), .song_pix(song_pix), 
-        .obj_pix(obj_pix), .use_obj_pix(use_obj_pix));
+        .obj_pix(obj_pix));
 
     
     // painter #(.OBJ_WIDTH(OBJ_WIDTH), .MAX_LEN(MAX_LEN)) u2(
@@ -128,7 +128,7 @@ module vga_test(
     obj_manage #(.OBJ_WIDTH(OBJ_WIDTH), .MAX_LEN(MAX_LEN)) obj_manager(
         .vga_clk(vga_clk), .clk(clk), .rst(rst), 
         .key_alpha_table(key_alpha_table),
-        .pix_x(pix_x), .pix_y(pix_y), .obj_pix(obj_pix), .use_obj_pix(use_obj_pix));
+        .pix_x(pix_x), .pix_y(pix_y), .obj_pix(obj_pix));
 
     song_change subtitle(.clk(clk), .rst(rst), .pix_x(pix_x), .pix_y(pix_y), .song_pix(song_pix));
 endmodule
@@ -146,8 +146,7 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
     input wire [LEN_BITS-1:0] obj_arr_len,
     output wire [11:0] pix_data, //输出像素点色彩信息
     input wire [12-1:0] song_pix,
-    input wire [12-1:0] obj_pix,
-    input wire use_obj_pix
+    input wire [12-1:0] obj_pix
     );
 
     parameter 
@@ -273,66 +272,16 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
     assign song_screen_pix = 
         (is_obj_in_rectangle({pix_x, pix_y}, {4'd0, 10'd320, 10'd0, 10'd2, 10'd50, 10'd0,`WHITE})) ?
             `GREEN : song_pix;
-            
+
     // pix_data 赋值
     // integer j;
     assign pix_data = 
         (!rst) ? `BLACK : (
             (!is_in_screen({pix_x, pix_y})) ? `BLACK : (
                 (pix_y < 120) ? 
-                    song_pix : obj_pix
+                    song_screen_pix : obj_pix
             )
         );
-
-    // always@(posedge vga_clk or negedge rst) begin
-    //     if(rst == 1'b0) begin
-    //         pix_data <= `BLACK;
-    //     end else if (!is_in_screen({pix_x, pix_y})) begin
-    //         pix_data <= `BLACK;
-    //     end else if (pix_y < 120) begin
-    //         if (is_obj_in_rectangle({pix_x, pix_y}, {4'd0, 10'd320, 10'd0, 10'd2, 10'd50, 10'd0,`WHITE})) begin
-    //             pix_data <= `GREEN;
-    //         end else begin
-    //             pix_data <= song_pix;
-    //         end
-    //     end else begin : loop // obj
-    //         pix_data <= obj_pix;
-            // pix_data <= obj_pix;
-            // for (j = 0; j < MAX_LEN; j = j + 1) begin
-            //     if (obj_arr[j][ENUML:ENUMR] == `NONE_ENUM) begin
-            //         pix_data <= `BLACK;
-            //         disable loop;
-            //     end else if (obj_arr[j][ENUML:ENUMR] == `ROUNDRECT_ENUM) begin
-            //         if (is_obj_in_rounded_rectangle({pix_x, pix_y}, obj_arr[j])) begin
-            //             if (((pix_x) < 10'd16 + obj_arr[j][XL:XR] + 10'd15) && ((pix_y) < 10'd32 + obj_arr[j][YL:YR] + 10'd4) && 
-            //                 ((pix_x) >= obj_arr[j][XL:XR] + 10'd15) && ((pix_y) >= obj_arr[j][YL:YR] + 10'd4)) begin // 字模方块内
-            //                 if ((ALPHA_TABLE[j] << ((pix_x - obj_arr[j][XL:XR] - 10'd15) + (pix_y - obj_arr[j][YL:YR] - 10'd4) * 10'd16)) >> 511) begin
-            //                     pix_data <= `BLACK;
-            //                 end else begin // 填充
-            //                     // pix_data <= `BLACK;
-            //                     pix_data <= obj_arr[j][COLORL:COLORR];
-            //                     // pix_data <= douta;
-            //                 end
-            //                 // pix_data <= obj_arr[j][COLORL:COLORR];
-            //             end else begin // 填充
-            //                 // pix_data <= `BLACK;
-            //                 pix_data <= obj_arr[j][COLORL:COLORR];
-            //                 // pix_data <= douta;
-            //             end
-            //             disable loop;
-            //         // end else if (is_obj_in_rectangle({pix_x + 10'd1, pix_y}, obj_arr[j])) begin
-            //             // rom_addr <= (pix_y - obj_arr[j][YL:YR]) * 16'd16;
-            //         end
-            //     end else begin
-            //         pix_data <= `BLACK;
-            //         disable loop;
-            //     end
-            // end
-
-            
-        // end
-    // end
-
 endmodule
 
 
@@ -544,8 +493,7 @@ module obj_manage #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter 
     input wire [20:0] key_alpha_table,
     input wire [10-1:0] pix_x,
     input wire [10-1:0] pix_y,
-    output reg [12-1:0] obj_pix,
-    output reg use_obj_pix
+    output reg [12-1:0] obj_pix
     );
     parameter [9:0] KEYBOARD_X = 80, KEYBOARD_Y = 120, KEY_WIDTH = 45, 
             KEY_HEIGHT = 40, KEY_D1 = 10, KEY_D2 = 20+40,
@@ -719,15 +667,12 @@ module obj_manage #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter 
     always @(posedge vga_clk) begin
         if (!is_in_screen({pix_x, pix_y})) begin
             obj_pix <= `BLACK;
-            // use_obj_pix = 0;
         end else if (pix_y < 120) begin
             obj_pix <= `BLACK;
-            // use_obj_pix = 0;
         end else begin  : loop
             for (j = 0; j < `ALPHA_TABLE_SIZE; j = j + 1) begin
                 if (obj_arr[j][ENUML:ENUMR] == `NONE_ENUM) begin
                     obj_pix <= `BLACK;
-                    // use_obj_pix = 0;
                     disable loop;
                 end else if (obj_arr[j][ENUML:ENUMR] == `ROUNDRECT_ENUM) begin
                     if (is_obj_in_rounded_rectangle({pix_x, pix_y}, obj_arr[j])) begin
@@ -735,21 +680,17 @@ module obj_manage #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter 
                             ((pix_x) >= obj_arr[j][XL:XR] + 10'd15) && ((pix_y) >= obj_arr[j][YL:YR] + 10'd4)) begin // 字模方块内
                             if ((alpha_table[j] << ((pix_x - obj_arr[j][XL:XR] - 10'd15) + (pix_y - obj_arr[j][YL:YR] - 10'd4) * 10'd16)) >> 511) begin
                                 obj_pix <= `BLACK;
-                                // use_obj_pix = 0;
                             end else begin // 填充
                                 obj_pix <= obj_arr[j][COLORL:COLORR];
-                                // use_obj_pix = 1;
                             end
                         end else begin // 填充
                             obj_pix <= obj_arr[j][COLORL:COLORR];
-                            // use_obj_pix = 1;
                         end
                         disable loop;
                     end
                     // not disable
                 end else begin
                     obj_pix <= `BLACK;
-                    // use_obj_pix = 0;
                     disable loop;
                 end
             end
