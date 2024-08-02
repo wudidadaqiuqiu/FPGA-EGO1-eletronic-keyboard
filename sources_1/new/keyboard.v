@@ -217,9 +217,9 @@ module keyboard (
     input rst,
     input PS2C,
     input PS2D,
-    output wire [20:0] alpha_table,
+    output wire [20:0] key_alpha_table,
 	output wire [20:0] updated_table
 );
-	keyboard_driver driver(.clk(clk), .rst(rst), .PS2C(PS2C), .PS2D(PS2D), .alpha_table(alpha_table));
-	key_process process(.clk(clk), .rst(rst), .alpha_table(alpha_table), .updated_table(updated_table));
+	keyboard_driver driver(.clk(clk), .rst(rst), .PS2C(PS2C), .PS2D(PS2D), .alpha_table(key_alpha_table));
+	key_process process(.clk(clk), .rst(rst), .alpha_table(key_alpha_table), .updated_table(updated_table));
 endmodule
