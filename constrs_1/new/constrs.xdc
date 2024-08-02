@@ -8,11 +8,11 @@ set_property -dict {PACKAGE_PIN P15 IOSTANDARD LVCMOS33} [get_ports rst]
 set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports sd]
 set_property -dict {PACKAGE_PIN T1 IOSTANDARD LVCMOS33} [get_ports audio_out]
 # PS2
-set_property -dict {PACKAGE_PIN K5 IOSTANDARD LVCMOS33} [get_ports  PS2C  ]
-set_property -dict {PACKAGE_PIN L4 IOSTANDARD LVCMOS33} [get_ports  PS2D ]
+set_property -dict {PACKAGE_PIN K5 IOSTANDARD LVCMOS33} [get_ports PS2C]
+set_property -dict {PACKAGE_PIN L4 IOSTANDARD LVCMOS33} [get_ports PS2D]
 #////////////////////////////////////VGA行同步场同步信号///////////////////////////////
 set_property -dict {PACKAGE_PIN D7 IOSTANDARD LVCMOS33} [get_ports hsync]
-set_property -dict {PACKAGE_PIN C4 IOSTANDARD LVCMOS33} [get_ports {vsync}]
+set_property -dict {PACKAGE_PIN C4 IOSTANDARD LVCMOS33} [get_ports vsync]
 
 #///////////////////////////////////////VGA红绿蓝信号//////////////////////////////////
 set_property -dict {PACKAGE_PIN F5 IOSTANDARD LVCMOS33} [get_ports {red[0]}]
@@ -66,3 +66,6 @@ set_property -dict {PACKAGE_PIN T3 IOSTANDARD LVCMOS33} [get_ports {switchs[1]}]
 set_property -dict {PACKAGE_PIN T5 IOSTANDARD LVCMOS33} [get_ports {switchs[0]}]
 
 set_property -dict {PACKAGE_PIN R17 IOSTANDARD LVCMOS33} [get_ports but]
+
+set_property CONFIG_MODE SPIx4 [current_design]
+set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
