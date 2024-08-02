@@ -269,7 +269,11 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
         end
     endgenerate
 
-    // reg is_in_upgreen
+    wire [12-1:0] song_screen_pix;
+    assign song_screen_pix = 
+        (is_obj_in_rectangle({pix_x, pix_y}, {4'd0, 10'd320, 10'd0, 10'd2, 10'd50, 10'd0,`WHITE})) ?
+            `GREEN : song_pix;
+            
     // pix_data 赋值
     // integer j;
     assign pix_data = 
@@ -720,7 +724,7 @@ module obj_manage #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter 
             obj_pix <= `BLACK;
             // use_obj_pix = 0;
         end else begin  : loop
-            for (j = 0; j < MAX_LEN; j = j + 1) begin
+            for (j = 0; j < `ALPHA_TABLE_SIZE; j = j + 1) begin
                 if (obj_arr[j][ENUML:ENUMR] == `NONE_ENUM) begin
                     obj_pix <= `BLACK;
                     // use_obj_pix = 0;
@@ -749,6 +753,7 @@ module obj_manage #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter 
                     disable loop;
                 end
             end
+            obj_pix <= `BLACK;
         end
     end
 
