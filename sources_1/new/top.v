@@ -1,39 +1,3 @@
-module top (
-    input wire clk,   //100Mhz时钟
-    input wire rst,   //复位键
-    // output wire [0:7] led,   //LED灯
-    output wire hsync,vsync,  //VGA行和场信号
-    output reg [3:0] red,green,blue  //输出像素
-    // output wire [0:7] seg_cs,seg_data0   //数码管显示模块
-);
-
-wire clk25,clr,vidon;
-wire [9:0] hc,vc;    //当前行和场的值
-
-clkdiv U1(.clk(clk),    //时钟模块，参数25MHz分频，用于屏幕的刷新
-        .clk25(clk25));
-
-vga U2(.clk25(clk25),   //vga信号输出模块
-        .hsync(hsync),
-        .vsync(vsync),
-        .hc(hc),
-        .vc(vc),
-        .vidon(vidon));
-
-always @(posedge clk25) begin
-    if (vidon == 1) begin
-        red = 4'b0000;
-        green = 4'b1111;   //食物为绿色
-        blue = 4'b0000;
-    end else begin
-        red = 0;   //这里三个置零起到消隐作用
-        blue = 0;
-        green = 0;
-    end
-end
-endmodule
-
-
 module vga_test(
     input wire clk,   //100Mhz时钟
     input wire rst,   //复位键
@@ -45,45 +9,45 @@ module vga_test(
     output wire [15:0] led,
     input wire [20:0] alpha_table,
     input wire [20:0] updated_table
-);
+    );
 
-wire vga_clk;
-wire [9:0] pix_x, pix_y;
-wire [11:0] pix_data;
+    wire vga_clk;
+    wire [9:0] pix_x, pix_y;
+    wire [11:0] pix_data;
 
-vga_driver vga(
-    .clk(clk),
-    .rst(rst),
-    .pix_data(pix_data),
-    .vga_clk(vga_clk),
-    .hsync(hsync),
-    .vsync(vsync),
-    .rgb({red, green, blue}),
-    .pix_x(pix_x),
-    .pix_y(pix_y)
-);
+    vga_driver vga(
+        .clk(clk),
+        .rst(rst),
+        .pix_data(pix_data),
+        .vga_clk(vga_clk),
+        .hsync(hsync),
+        .vsync(vsync),
+        .rgb({red, green, blue}),
+        .pix_x(pix_x),
+        .pix_y(pix_y)
+    );
 
 
 
-parameter OBJ_WIDTH = 66, MAX_LEN = 23;
-wire [(OBJ_WIDTH * MAX_LEN)-1:0] obj_arr_packed;
+    parameter OBJ_WIDTH = 66, MAX_LEN = 23;
+    wire [(OBJ_WIDTH * MAX_LEN)-1:0] obj_arr_packed;
 
-wire butf;
-wire [5:0] obj_arr_len;
-fliter u1(.clk(clk), .rst(rst), .data(but), .df(butf));
+    wire butf;
+    wire [5:0] obj_arr_len;
+    fliter u1(.clk(clk), .rst(rst), .data(but), .df(butf));
 
-wire [12-1:0] song_pix;
-basic_graph #(.OBJ_WIDTH(OBJ_WIDTH), .MAX_LEN(MAX_LEN)) graph(.vga_clk(vga_clk), .clk(clk), .rst(rst), .pix_x(pix_x), .pix_y(pix_y), 
-                    .obj_arr_packed(obj_arr_packed), 
-                    .obj_arr_len(obj_arr_len), .pix_data(pix_data), .song_pix(song_pix));
+    wire [12-1:0] song_pix;
+    basic_graph #(.OBJ_WIDTH(OBJ_WIDTH), .MAX_LEN(MAX_LEN)) graph(.vga_clk(vga_clk), .clk(clk), .rst(rst), .pix_x(pix_x), .pix_y(pix_y), 
+                        .obj_arr_packed(obj_arr_packed), 
+                        .obj_arr_len(obj_arr_len), .pix_data(pix_data), .song_pix(song_pix));
 
-painter #(.OBJ_WIDTH(OBJ_WIDTH), .MAX_LEN(MAX_LEN)) u2(
-        .clk(clk), .rst(rst), .sw(butf),
-        .alpha_table(alpha_table),
-        .updated_table(updated_table),
-        .obj_arr_packed(obj_arr_packed), .arr_len(obj_arr_len), .test_pin(led));
+    painter #(.OBJ_WIDTH(OBJ_WIDTH), .MAX_LEN(MAX_LEN)) u2(
+            .clk(clk), .rst(rst), .sw(butf),
+            .alpha_table(alpha_table),
+            .updated_table(updated_table),
+            .obj_arr_packed(obj_arr_packed), .arr_len(obj_arr_len), .test_pin(led));
 
-song_change subtitle(.clk(clk), .rst(rst), .pix_x(pix_x), .pix_y(pix_y), .song_pix(song_pix));
+    song_change subtitle(.clk(clk), .rst(rst), .pix_x(pix_x), .pix_y(pix_y), .song_pix(song_pix));
 endmodule
 
 
@@ -94,7 +58,7 @@ module logo_graph (
     input wire [9:0] pix_x,
     input wire [9:0] pix_y,
     output reg [11:0] pix_data //输出像素点色彩信息
- );
+    );
 
     reg [19:0]      rom_addr;
     reg rom_ena = 1'b1;
@@ -196,6 +160,31 @@ endmodule
 `define YZIMO  512'h00000000000000000000F8F870303060386018C01CC01F800F800F000700070007000700070007001FC000000000000000000000000000000000000000000000
 `define ZZIMO  512'h000000000000000000003FF0386070E060C001C0018003000300060006000C001C001830383030607FE000000000000000000000000000000000000000000000
 
+`define __ 5'd31
+`define DO_1 5'd0
+`define RE_2 5'd1
+`define MI_3 5'd2
+`define FA_4 5'd3
+`define SO_5 5'd4
+`define LA_6 5'd5
+`define XI_7 5'd6
+
+`define DO1 5'd7
+`define RE2 5'd8
+`define MI3 5'd9
+`define FA4 5'd10
+`define SO5 5'd11
+`define LA6 5'd12
+`define XI7 5'd13
+
+`define _DO1 5'd14
+`define _RE2 5'd15
+`define _MI3 5'd16
+`define _FA4 5'd17
+`define _SO5 5'd18
+`define _LA6 5'd19
+`define _XI7 5'd20
+
 module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN_BITS = 6)(
     input wire vga_clk,
     input wire clk,
@@ -286,12 +275,6 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
         end
     endfunction
 
-    function [9:0] int_to_10;
-        input integer i;
-        begin
-            int_to_10 = i[9:0];
-        end
-    endfunction
     function is_obj_in_rounded_rectangle;
         input [19:0] pos;
         input [OBJ_WIDTH-1:0] obj;
@@ -325,19 +308,19 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
     // 定义一个多维数组来存储对象
     wire [OBJ_WIDTH-1:0] obj_arr [0:MAX_LEN-1];
 
+    // 从一维数组中解包到多维数组
     genvar i;
     generate
         for (i = 0; i < MAX_LEN; i = i + 1) begin : unpack
-            // 从一维数组中解包到多维数组
             assign obj_arr[i] = obj_arr_packed[(i+1)*OBJ_WIDTH-1: OBJ_WIDTH * i];
         end
     endgenerate
 
+    // pix_data 赋值
     integer j;
     always@(posedge vga_clk or negedge rst) begin
         if(rst == 1'b0) begin
             pix_data <= `BLACK;
-            // rom_addr <= 16'd0;
         end else if (!is_in_screen({pix_x, pix_y})) begin
             pix_data <= `BLACK;
         end else if (pix_y < 120) begin
@@ -353,9 +336,6 @@ module basic_graph #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter
                     disable loop;
                 end else if (obj_arr[j][ENUML:ENUMR] == `ROUNDRECT_ENUM) begin
                     if (is_obj_in_rounded_rectangle({pix_x, pix_y}, obj_arr[j])) begin
-                            // pix_data <= obj_arr[j][COLORL:COLORR];
-                        // rom_addr <= rom_addr + 1;
-                        
                         if (((pix_x) < 10'd16 + obj_arr[j][XL:XR] + 10'd15) && ((pix_y) < 10'd32 + obj_arr[j][YL:YR] + 10'd4) && 
                             ((pix_x) >= obj_arr[j][XL:XR] + 10'd15) && ((pix_y) >= obj_arr[j][YL:YR] + 10'd4)) begin // 字模方块内
                             if ((ALPHA_TABLE[j] << ((pix_x - obj_arr[j][XL:XR] - 10'd15) + (pix_y - obj_arr[j][YL:YR] - 10'd4) * 10'd16)) >> 511) begin
@@ -395,7 +375,7 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
     output wire [(OBJ_WIDTH * MAX_LEN)-1:0] obj_arr_packed,
     output wire [LEN_BITS-1:0] arr_len,
     output wire [15:0] test_pin
-);  
+    );
     parameter [9:0] KEYBOARD_X = 80, KEYBOARD_Y = 120, KEY_WIDTH = 45, 
                 KEY_HEIGHT = 40, KEY_D1 = 10, KEY_D2 = 20+40,
                 KEY_D3 = 30, KEY_D4 = 40, KEY_D5 = 120;
@@ -423,7 +403,7 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
         SCREEN_HEIGHT = 480;
 
     parameter [OBJ_WIDTH-1:0] NONE = {`NONE_ENUM, 10'd0, 10'd0, 10'd0, 10'd0, 10'd0, `WHITE};
-    // Local parameters with int_to_10 function applied
+    
     parameter [OBJ_WIDTH-1:0] 
         Q_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X), (KEYBOARD_Y), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
         W_OBJ = { `ROUNDRECT_ENUM, (KEYBOARD_X + (KEY_WIDTH + KEY_D1)), (KEYBOARD_Y), (KEY_WIDTH), (KEY_HEIGHT), 10'd5, `WHITE},
@@ -452,13 +432,11 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
 
     // 内部存储对象的数组
     reg [OBJ_WIDTH-1:0] obj_arr [0:MAX_LEN-1];
-
     reg [OBJ_WIDTH-1:0] obj_reg = { `RECTANGLE_ENUM, 10'd100, 10'd100, 10'd100, 10'd100,10'd100, `GREEN};
-    
     reg [LEN_BITS-1:0] len = 0;
-
     assign test_pin = obj_arr[1][65:62];
 
+    // obj_arr 管理
     integer i1;
     always @(posedge clk or negedge rst) begin
         if(rst == 1'b0) begin
@@ -499,6 +477,7 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
             // obj_arr[updated_table/2][COLORL:COLORR] <= `GREY;
         end
     end
+
     // 打包多维数组为一维数组
     // generate 在综合时运行
     genvar i;
@@ -507,18 +486,6 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
             assign obj_arr_packed[(i+1)*OBJ_WIDTH-1: OBJ_WIDTH * i] = obj_arr[i];
         end
     endgenerate
-
-    function [9:0] add10;
-        input [9:0] a, b;
-        add10 = a + b;
-    endfunction
-
-    function [9:0] int_to_10;
-        input integer i;
-        begin
-            int_to_10 = i[9:0];
-        end
-    endfunction
 
     task add_obj;
         input [OBJ_WIDTH-1:0] obj;
@@ -531,31 +498,6 @@ module painter #(parameter OBJ_WIDTH = 66, parameter MAX_LEN = 21, parameter LEN
         end
     endtask
 endmodule
-
-`define __ 5'd31
-`define DO_1 5'd0
-`define RE_2 5'd1
-`define MI_3 5'd2
-`define FA_4 5'd3
-`define SO_5 5'd4
-`define LA_6 5'd5
-`define XI_7 5'd6
-
-`define DO1 5'd7
-`define RE2 5'd8
-`define MI3 5'd9
-`define FA4 5'd10
-`define SO5 5'd11
-`define LA6 5'd12
-`define XI7 5'd13
-
-`define _DO1 5'd14
-`define _RE2 5'd15
-`define _MI3 5'd16
-`define _FA4 5'd17
-`define _SO5 5'd18
-`define _LA6 5'd19
-`define _XI7 5'd20
 
 module audio_and_vga (
     input clk,          //100MHZ
@@ -574,7 +516,7 @@ module audio_and_vga (
     // vga
     output wire hsync,vsync,  //VGA行和场信号
     output wire [3:0] red,green,blue  //输出像素
-);
+    );
     wire    [20:0]  key_table;
     wire    [20:0]  updated_table;
     wire    [4:0]  tone;
@@ -633,7 +575,7 @@ module song_change(
     input wire [10-1:0] pix_y,
     // output wire [44-1:0] song_,
     output wire [12-1:0] song_pix
-);
+    );
     
     wire [511:0] ALPHA_TABLE [0:21-1];
     assign ALPHA_TABLE[0] = `QZIMO;
