@@ -7,5 +7,4 @@
 - vga 显示
 
 ## 参考
-- vga 驱动参考：https://www.bilibili.com/video/BV1ha411W7JL/?spm_id_from=333.337.search-card.all.click&vd_source=0aa11dd1f6427f182264b35b09d2287f
-- 键盘 驱动参考 同上在简介的百度网盘链接中
+- vga, 键盘驱动参考：https://www.bilibili.com/video/BV1ha411W7JL/?spm_id_from=333.337.search-card.all.click&vd_source=0aa11dd1f6427f182264b35b09d2287f
